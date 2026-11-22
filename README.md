@@ -71,6 +71,23 @@ npm start
 
 Dann liefert der Server die gebaute Oberfläche und die Sockets auf `PORT` (Standard 3001).
 
+## Docker
+
+Dasselbe Produktionsbild, ein Container, Port 3001:
+
+```bash
+docker compose up --build
+```
+
+Im Browser [http://localhost:3001](http://localhost:3001). `docker compose down` stoppt das Vereinsheim. Nur das Image, ohne Compose:
+
+```bash
+docker build -t secret-nils .
+docker run --rm -p 3001:3001 secret-nils
+```
+
+Das Image baut die Oberfläche, installiert danach nur die Laufzeitabhängigkeiten und startet `npm start`. Der Container prüft `/health`. Sitzungen liegen im Speicher: ein neuer Container beginnt mit leeren Vereinsheimen.
+
 Zugzeit in der Lobby: 30, 45, 60, 90, 120 oder 180 Sekunden. Ohne rechtzeitige Aktion entscheidet die Sitzungsleitung kommissarisch (fehlende Stimme zählt als Ablehnung, Vorlagen und Sonderaktionen werden gezogen), damit eine Runde nicht stehen bleibt. Wer in der Lobby 90 Sekunden weg ist, verliert den Platz. Ein vollständig verlassenes Spiel wird nach 10 Minuten geschlossen. Der Ausweis (Token im `localStorage`) holt dieselbe Person zurück, solange die Sitzung existiert.
 
 ## Tests

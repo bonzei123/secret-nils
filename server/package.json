@@ -9,11 +9,11 @@
   },
   "dependencies": {
     "@secret-nils/shared": "*",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "tsx": "^4.20.3"
   },
   "devDependencies": {
     "@types/node": "^22.15.21",
-    "socket.io-client": "^4.8.1",
-    "tsx": "^4.20.3"
+    "socket.io-client": "^4.8.1"
   }
 }
