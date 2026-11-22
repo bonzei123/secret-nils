@@ -1,0 +1,19 @@
+{
+  "name": "@secret-nils/server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@secret-nils/shared": "*",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "socket.io-client": "^4.8.1",
+    "tsx": "^4.20.3"
+  }
+}
