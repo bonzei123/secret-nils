@@ -35,12 +35,25 @@ button { cursor: pointer; }
   outline-offset: 2px;
 }
 
-.felt { min-height: 100vh; padding: 1.1rem clamp(0.8rem, 2vw, 1.6rem) 2rem; }
+.felt { min-height: 100vh; padding: 1.1rem clamp(0.8rem, 2vw, 1.6rem) 2rem; position: relative; }
+.felt::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.22;
+  background-image: url("/leaf.svg");
+  background-size: 132px 132px;
+}
+.felt > * { position: relative; z-index: 1; }
 .center-card, .paper {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.45), transparent 30%),
     repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(90, 60, 20, 0.035) 4px),
+    url("/leaf-ink.svg"),
     var(--paper);
+  background-size: auto, auto, 150px 150px, auto;
   color: var(--ink);
   border-radius: 18px;
   box-shadow: var(--shadow);
@@ -73,7 +86,11 @@ button { cursor: pointer; }
   box-shadow: inset 0 0 0 3px var(--brass), 0 8px 16px rgba(0, 0, 0, 0.25);
   color: #e7f6d8;
 }
-.seal svg { width: 34px; height: 34px; }
+.seal .leaf { width: 42px; height: 42px; }
+.leaf { width: 1.35rem; height: 1.35rem; display: block; flex: none; }
+.leaf-good { color: #1c8a45; }
+.leaf-bad { color: #b42318; }
+.leaf-club { color: #e7f6d8; }
 
 .home-grid, .split {
   display: grid;
@@ -270,7 +287,9 @@ input, select {
 .board, .side-card {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.4), transparent 24%),
+    url("/leaf-ink.svg"),
     var(--paper);
+  background-size: auto, 150px 150px, auto;
   color: var(--ink);
   border-radius: 18px;
   box-shadow: var(--shadow);
@@ -292,9 +311,10 @@ input, select {
   display: flex;
   justify-content: space-between;
   gap: 0.4rem;
-  align-items: baseline;
+  align-items: center;
   margin-bottom: 0.45rem;
 }
+.track-head h2 { display: flex; align-items: center; gap: 0.35rem; }
 .slot-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.35rem; }
 .track.eigen .slot-row { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .slot {
@@ -309,7 +329,9 @@ input, select {
 }
 .slot.filled { border-style: solid; background: #fffaf0; }
 .slot.filled.eigen { background: #f8ebe4; }
-.slot .no { font-size: 0.72rem; letter-spacing: 0.08em; color: var(--ink-soft); }
+.slot .no { display: flex; align-items: center; gap: 0.15rem; font-size: 0.72rem; letter-spacing: 0.08em; color: var(--ink-soft); }
+.slot .leaf { width: 0.95rem; height: 0.95rem; }
+.slot:not(.filled) .leaf { opacity: 0.38; }
 .slot strong { font-size: 0.78rem; line-height: 1.25; overflow-wrap: anywhere; }
 .slot em { font-style: normal; font-size: 0.72rem; color: var(--ink-soft); line-height: 1.25; }
 .mini-stamp {
@@ -422,25 +444,41 @@ input, select {
   height: 96px;
   border-radius: 8px;
   border: 2px solid #ead7ae;
-  background: repeating-linear-gradient(45deg, #1b4a34, #1b4a34 7px, #246348 7px, #246348 14px);
+  background:
+    radial-gradient(circle at 50% 42%, rgba(183, 227, 164, 0.2), transparent 42%),
+    repeating-linear-gradient(45deg, #1b4a34, #1b4a34 7px, #246348 7px, #246348 14px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.18);
+  display: grid;
+  place-items: center;
 }
+.card-back .leaf { width: 34px; height: 34px; }
 .antrag {
+  position: relative;
   text-align: left;
-  background: var(--paper-bright);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(31, 138, 76, 0.16), transparent 42%),
+    var(--paper-bright);
   border: 1px solid #e0d0ae;
   border-top: 8px solid var(--club);
   border-radius: 12px;
-  padding: 0.7rem 0.8rem 0.85rem;
+  padding: 0.7rem 2.4rem 0.85rem 0.8rem;
   color: var(--ink);
   min-height: 132px;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
 }
+.antrag-mark { position: absolute; top: 0.55rem; right: 0.55rem; }
+.antrag-mark .leaf { width: 1.8rem; height: 1.8rem; }
 button.antrag { width: 100%; }
 button.antrag:hover:not(:disabled) { transform: translateY(-2px); }
-.antrag.eigeninteresse { border-top-color: var(--kluengel); }
+.antrag.eigeninteresse {
+  border-top-color: #b42318;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(180, 35, 24, 0.16), transparent 42%),
+    var(--paper-bright);
+}
+.antrag.eigeninteresse .antrag-action { color: #7a261f; }
 .antrag .kicker { color: var(--ink-soft); }
 .antrag h3 { font-family: "Fraunces", Georgia, serif; font-size: 1.12rem; margin: 0; }
 .antrag p { margin: 0; color: var(--ink-soft); line-height: 1.35; }

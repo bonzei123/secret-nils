@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { RULES, SEAT_COLORS, type ClientAction, type ClientState, type PolicyView } from "@secret-nils/shared";
-import { Logo, SecretCover, formatClock, useCountdown } from "./ui";
+import { Leaf, Logo, SecretCover, formatClock, useCountdown } from "./ui";
 
 interface GameProps {
   state: ClientState;
@@ -401,7 +401,10 @@ function Track({
   return (
     <section className={`track ${tone}`}>
       <div className="track-head">
-        <h2>{title}</h2>
+        <h2>
+          <Leaf tone={tone === "eigen" ? "bad" : "good"} />
+          {title}
+        </h2>
         <span>
           {enacted.length}/{goal}
         </span>
@@ -412,7 +415,10 @@ function Track({
           const short = SHORT_SLOT[label] ?? label;
           return (
             <div key={`${title}-${index}`} className={`slot ${card ? "filled" : ""} ${tone === "eigen" ? "eigen" : ""}`} title={label}>
-              <span className="no">{index + 1}</span>
+              <span className="no">
+                <Leaf tone={tone === "eigen" ? "bad" : "good"} />
+                {index + 1}
+              </span>
               {card ? <strong title={card.title}>{card.title}</strong> : <em>{short}</em>}
               {card?.chaos && <span className="mini-stamp">Notverwaltung</span>}
             </div>
@@ -424,9 +430,13 @@ function Track({
 }
 
 function PolicyCard({ card, action }: { card: PolicyView; action?: string }) {
+  const good = card.type === "vereinswohl";
   return (
     <>
-      <span className="kicker">{card.type === "vereinswohl" ? "Vereinswohl" : "Eigeninteresse"}</span>
+      <span className="antrag-mark">
+        <Leaf tone={good ? "good" : "bad"} />
+      </span>
+      <span className="kicker">{good ? "Vereinswohl" : "Eigeninteresse"}</span>
       <h3>{card.title}</h3>
       <p>{card.flavor}</p>
       {action && <span className="antrag-action">{action}</span>}
@@ -450,7 +460,9 @@ function Hand({
     return (
       <div className="backs" aria-hidden>
         {Array.from({ length: count }, (_, index) => (
-          <div key={index} className="card-back" />
+          <div key={index} className="card-back">
+            <Leaf tone="club" />
+          </div>
         ))}
       </div>
     );
