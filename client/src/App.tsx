@@ -48,16 +48,7 @@ export function App() {
           }}
         />
       )}
-      {screen === "home" && !policiesOpen && (
-        <Home
-          connected={club.connected}
-          onCreate={club.create}
-          onJoin={club.join}
-          onPolicies={() => {
-            window.location.hash = "satzung";
-          }}
-        />
-      )}
+      {screen === "home" && !policiesOpen && <Home connected={club.connected} onCreate={club.create} onJoin={club.join} />}
       {screen === "lobby" && club.state && (
         <Lobby
           state={club.state}
@@ -72,10 +63,14 @@ export function App() {
         <Game state={club.state} connected={club.connected} onAct={club.act} onRematch={club.rematch} onLeave={club.leave} />
       )}
       {screen !== "game" && (
-        <p className="colophon">
-          Fiktives Partyspiel ohne Bezug zu echten Clubs, Personen oder Organisationen. Eigenständige Satire, keine
-          offizielle Adaption.
-        </p>
+        <footer className="colophon">
+          <p>Fiktives Partyspiel ohne Bezug zu echten Clubs, Personen oder Organisationen. Eigenständige Satire, keine offizielle Adaption.</p>
+          {screen === "home" && !policiesOpen && (
+            <button type="button" className="colophon-link" onClick={() => { window.location.hash = "satzung"; }}>
+              Beschlussvorlagen
+            </button>
+          )}
+        </footer>
       )}
     </div>
   );

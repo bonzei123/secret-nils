@@ -193,6 +193,20 @@ textarea { min-height: 5.5rem; resize: vertical; line-height: 1.4; }
   margin: 1.2rem auto 0;
   max-width: 60ch;
 }
+.colophon p { margin: 0; }
+.colophon-link {
+  display: inline-block;
+  margin-top: 0.45rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: rgba(244, 234, 212, 0.55);
+  font: inherit;
+  font-size: 0.78rem;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+}
 
 .toast {
   position: fixed;
