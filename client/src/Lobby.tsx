@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ClientState, TimerChoice } from "@secret-nils/shared";
-import { Logo } from "./ui";
+import { Logo, Wordmark } from "./ui";
 
 interface LobbyProps {
   state: ClientState;
@@ -33,7 +33,9 @@ export function Lobby({ state, onReady, onOptions, onKick, onStart, onLeave }: L
         <Logo />
         <div>
           <p className="kicker">Vereinsheim</p>
-          <h1>Warteraum</h1>
+          <h1>
+            <Wordmark>Warteraum</Wordmark>
+          </h1>
         </div>
       </header>
       <div className="code-plate">
@@ -63,7 +65,7 @@ export function Lobby({ state, onReady, onOptions, onKick, onStart, onLeave }: L
             onChange={(event) => void onOptions({ probeMitNpcs: event.target.checked })}
           />
           <span>
-            <strong>Probespiel.</strong> Platzhalter füllen auf fünf Sitze auf, wenn ihr weniger als fünf seid.
+            <strong>Probespiel.</strong> Nur angehakt werden Platzhalter dazugesetzt, bis fünf Sitze voll sind. Ohne Haken braucht es fünf Personen.
           </span>
         </label>
       </section>

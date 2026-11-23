@@ -96,8 +96,8 @@ export function useClub() {
     error,
     booting,
     dismissError: () => setError(null),
-    async create(name: string, turnTimerSeconds: number, sitzeMischen: boolean) {
-      const ack = await accept(await emit("create", { name, turnTimerSeconds, sitzeMischen }));
+    async create(name: string, turnTimerSeconds: number, sitzeMischen: boolean, probeMitNpcs: boolean) {
+      const ack = await accept(await emit("create", { name, turnTimerSeconds, sitzeMischen, probeMitNpcs }));
       if (ack.ok && ack.token && ack.code) saveSession({ token: ack.token, code: ack.code });
       return ack;
     },

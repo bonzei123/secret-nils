@@ -52,6 +52,7 @@ export interface CreatePayload {
   name?: unknown;
   turnTimerSeconds?: unknown;
   sitzeMischen?: unknown;
+  probeMitNpcs?: unknown;
 }
 
 export interface JoinPayload {

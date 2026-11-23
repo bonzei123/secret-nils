@@ -1,7 +1,7 @@
 import { Game } from "./Game";
 import { Home } from "./Home";
 import { Lobby } from "./Lobby";
-import { Logo } from "./ui";
+import { Logo, Wordmark } from "./ui";
 import { useClub } from "./useClub";
 
 export function App() {
@@ -24,7 +24,9 @@ export function App() {
             <Logo />
             <div>
               <p className="kicker">Verbindung</p>
-              <h1>Der Ausweis wird geprüft</h1>
+              <h1>
+                <Wordmark>Der Ausweis wird geprüft</Wordmark>
+              </h1>
             </div>
           </header>
           <p>Gleich geht die Tür zum Vereinsheim auf.</p>

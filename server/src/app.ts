@@ -111,7 +111,12 @@ export function createApp(config: ManagerConfig = {}) {
 
   io.on("connection", (socket) => {
     socket.on("create", (payload: unknown, ack?: unknown) => {
-      const body = (payload ?? {}) as { name?: unknown; turnTimerSeconds?: unknown; sitzeMischen?: unknown };
+      const body = (payload ?? {}) as {
+        name?: unknown;
+        turnTimerSeconds?: unknown;
+        sitzeMischen?: unknown;
+        probeMitNpcs?: unknown;
+      };
       const result = manager.createRoom(body);
       if (!result.ok) return reply(ack, result);
       bind(socket, result.data.code, result.data.playerId);

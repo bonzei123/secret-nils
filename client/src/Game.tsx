@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { RULES, SEAT_COLORS, type ClientAction, type ClientState, type PolicyView } from "@secret-nils/shared";
-import { Leaf, Logo, SecretCover, formatClock, useCountdown } from "./ui";
+import { Leaf, Logo, SecretCover, Wordmark, formatClock, useCountdown } from "./ui";
 
 interface GameProps {
   state: ClientState;
@@ -60,7 +60,9 @@ function Table({
             <p className="kicker" style={{ color: "var(--brass)" }}>
               {state.lobby.code}
             </p>
-            <p className="brand-name">Secret Nils</p>
+            <p className="brand-name">
+              <Wordmark tone="club">Secret Nils</Wordmark>
+            </p>
           </div>
         </div>
         <div role="status" className="phase-pill">

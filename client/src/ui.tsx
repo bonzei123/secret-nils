@@ -51,6 +51,16 @@ export function Logo() {
   );
 }
 
+/** Überschrift mit Hanfblatt davor. `club` ist hell, für den dunklen Filz. */
+export function Wordmark({ children, tone = "good" }: { children: ReactNode; tone?: "good" | "club" }) {
+  return (
+    <span className="wordmark">
+      <Leaf tone={tone} />
+      <span>{children}</span>
+    </span>
+  );
+}
+
 export function useCountdown(seconds: number | null): number | null {
   const [left, setLeft] = useState(seconds);
   useEffect(() => {

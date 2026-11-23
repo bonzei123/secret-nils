@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { HOW_TO_EXTRAS, HOW_TO_STEPS, HOW_TO_TURNS, HOW_TO_WINS, RULES, TIMER_CHOICES } from "@secret-nils/shared";
-import { Logo } from "./ui";
+import { Logo, Wordmark } from "./ui";
 
 interface HomeProps {
   connected: boolean;
-  onCreate: (name: string, timer: number, shuffle: boolean) => Promise<unknown>;
+  onCreate: (name: string, timer: number, shuffle: boolean, probe: boolean) => Promise<unknown>;
   onJoin: (code: string, name: string) => Promise<unknown>;
 }
 
@@ -14,6 +14,7 @@ export function Home({ connected, onCreate, onJoin }: HomeProps) {
   const [code, setCode] = useState(preset);
   const [timer, setTimer] = useState<number>(90);
   const [shuffle, setShuffle] = useState(false);
+  const [probe, setProbe] = useState(false);
   const [busy, setBusy] = useState(false);
 
   function remember(next: string) {
@@ -27,7 +28,9 @@ export function Home({ connected, onCreate, onJoin }: HomeProps) {
         <Logo />
         <div>
           <p className="kicker">Cannabis Social Club · fiktive Satzung</p>
-          <h1>Secret Nils</h1>
+          <h1>
+            <Wordmark>Secret Nils</Wordmark>
+          </h1>
         </div>
       </header>
       <p className="lede">
@@ -40,7 +43,7 @@ export function Home({ connected, onCreate, onJoin }: HomeProps) {
           onSubmit={(event) => {
             event.preventDefault();
             setBusy(true);
-            void onCreate(name, timer, shuffle).finally(() => setBusy(false));
+            void onCreate(name, timer, shuffle, probe).finally(() => setBusy(false));
           }}
         >
           <h2>Verein gründen</h2>
@@ -61,6 +64,12 @@ export function Home({ connected, onCreate, onJoin }: HomeProps) {
           <label className="check">
             <input type="checkbox" checked={shuffle} onChange={(event) => setShuffle(event.target.checked)} />
             <span>Sitze mischen. Sonst gilt die Beitrittsreihenfolge, der Vorsitz wandert im Uhrzeigersinn.</span>
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={probe} onChange={(event) => setProbe(event.target.checked)} />
+            <span>
+              <strong>Probespiel.</strong> Nur wenn dieser Haken gesetzt ist, füllen Platzhalter auf fünf Sitze auf.
+            </span>
           </label>
           <button className="btn" type="submit" disabled={!connected || busy}>
             Vereinsheim öffnen

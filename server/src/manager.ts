@@ -125,7 +125,7 @@ export class RoomManager {
     this.onClose = config.onClose;
   }
 
-  createRoom(input: { name?: unknown; turnTimerSeconds?: unknown; sitzeMischen?: unknown }): RoomResult<{
+  createRoom(input: { name?: unknown; turnTimerSeconds?: unknown; sitzeMischen?: unknown; probeMitNpcs?: unknown }): RoomResult<{
     code: string;
     playerId: string;
     token: string;
@@ -140,6 +140,9 @@ export class RoomManager {
     if (input.sitzeMischen !== undefined && typeof input.sitzeMischen !== "boolean") {
       return { ok: false, error: "Die Sitzordnung ist so nicht lesbar." };
     }
+    if (input.probeMitNpcs !== undefined && typeof input.probeMitNpcs !== "boolean") {
+      return { ok: false, error: "Das Probespiel ist so nicht lesbar." };
+    }
     const code = this.createCode();
     if (this.rooms.has(code)) return { ok: false, error: "Der Raumcode war schon vergeben. Nochmal versuchen." };
     const member = this.makeMember(name);
@@ -148,7 +151,7 @@ export class RoomManager {
       hostId: member.id,
       status: "lobby",
       members: [member],
-      options: { turnTimerSeconds, sitzeMischen: input.sitzeMischen === true, probeMitNpcs: false },
+      options: { turnTimerSeconds, sitzeMischen: input.sitzeMischen === true, probeMitNpcs: input.probeMitNpcs === true },
       game: null,
       timer: null,
       timerKey: null,

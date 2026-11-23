@@ -172,6 +172,23 @@ describe("Vereinsheim", () => {
     expect(table.manager.hasRoom(table.code)).toBe(false);
   });
 
+  it("setzt Platzhalter nur, wenn das Probespiel angehakt ist", () => {
+    const off = openTable(1);
+    off.manager.setReady(off.code, off.members[0]!.playerId, true);
+    expect(off.manager.start(off.code, off.members[0]!.playerId).ok).toBe(false);
+    expect(off.manager.viewFor(off.code, off.members[0]!.playerId)?.lobby.npcFillers).toEqual([]);
+
+    const on = harness();
+    const host = on.manager.createRoom({ name: "Host", turnTimerSeconds: 30, probeMitNpcs: true });
+    if (!host.ok) throw new Error(host.error);
+    const lobby = on.manager.viewFor(host.data.code, host.data.playerId);
+    expect(lobby?.lobby.options.probeMitNpcs).toBe(true);
+    expect(lobby?.lobby.npcFillers).toHaveLength(4);
+    expect(on.manager.setReady(host.data.code, host.data.playerId, true).ok).toBe(true);
+    expect(on.manager.start(host.data.code, host.data.playerId).ok).toBe(true);
+    expect(on.manager.debugGame(host.data.code)?.players.filter((player) => player.npc)).toHaveLength(4);
+  });
+
   it("füllt ein Probespiel mit Platzhaltern auf und lässt sie ziehen", () => {
     const { manager, clock, code, members } = openTable(1);
     expect(manager.start(code, members[0]!.playerId).ok).toBe(false);
