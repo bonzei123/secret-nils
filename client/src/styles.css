@@ -109,14 +109,15 @@ button { cursor: pointer; }
 .panel h2 { font-family: "Fraunces", Georgia, serif; margin: 0 0 0.8rem; font-size: 1.4rem; }
 .stack { display: grid; gap: 0.75rem; }
 label { display: grid; gap: 0.35rem; font-weight: 600; }
-input, select {
+input, select, textarea {
   min-height: 48px;
   border-radius: 12px;
   border: 1px solid #ddcba8;
   background: var(--paper-bright);
   color: var(--ink);
-  padding: 0 0.8rem;
+  padding: 0.6rem 0.8rem;
 }
+textarea { min-height: 5.5rem; resize: vertical; line-height: 1.4; }
 .code-input { letter-spacing: 0.28em; text-transform: uppercase; font-weight: 700; }
 .check { display: flex; gap: 0.6rem; align-items: flex-start; font-weight: 500; }
 .check input { min-height: auto; margin-top: 0.25rem; }
@@ -153,6 +154,11 @@ input, select {
 .btn:disabled { opacity: 0.48; cursor: not-allowed; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
+.policy-group { margin-top: 1.2rem; }
+.policy-list { display: grid; gap: 0.7rem; }
+.policy-edit { display: grid; gap: 0.55rem; }
+.policy-edit .badges { align-items: center; }
+.policies { max-width: 980px; }
 .howto { margin-top: 1.5rem; }
 .howto h2, .rules h2 { font-family: "Fraunces", Georgia, serif; margin: 0 0 0.4rem; }
 .howto-lead { margin: 0 0 0.9rem; color: var(--ink-soft); line-height: 1.45; }

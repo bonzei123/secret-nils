@@ -1,12 +1,14 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createApp } from "./app.js";
+import { PolicyStore } from "./policy-store.js";
 
 const port = Number(process.env.PORT) || 3001;
 const host = process.env.HOST || "0.0.0.0";
+const policiesPath = process.env.POLICIES_PATH ?? path.resolve(process.cwd(), "../data/policies.json");
 
 export function start() {
-  const app = createApp();
+  const app = createApp({ policies: new PolicyStore(policiesPath) });
   app.httpServer.listen(port, host, () => {
     console.log(`Secret Nils hört auf http://${host}:${port}`);
   });

@@ -6,9 +6,10 @@ interface HomeProps {
   connected: boolean;
   onCreate: (name: string, timer: number, shuffle: boolean, probe: boolean) => Promise<unknown>;
   onJoin: (code: string, name: string) => Promise<unknown>;
+  onPolicies: () => void;
 }
 
-export function Home({ connected, onCreate, onJoin }: HomeProps) {
+export function Home({ connected, onCreate, onJoin, onPolicies }: HomeProps) {
   const preset = useMemo(() => new URLSearchParams(window.location.search).get("beitritt") ?? "", []);
   const [name, setName] = useState(() => localStorage.getItem("secret-nils-name") ?? "");
   const [code, setCode] = useState(preset);
@@ -37,6 +38,11 @@ export function Home({ connected, onCreate, onJoin }: HomeProps) {
         Fünf bis zehn Mitglieder, ein Vereinsheim, zwei Lager. Die ehrlichen Mitglieder wollen Transparenz.
         Ein kleiner Klüngel will die Kasse. Niemand sagt, wer zur Satzung hält und wer den Dienstwagen bestellt.
       </p>
+      <div className="btn-row" style={{ margin: "0.2rem 0 1rem" }}>
+        <button type="button" className="btn brass" onClick={onPolicies}>
+          Beschlussvorlagen schreiben
+        </button>
+      </div>
       <div className="home-grid">
         <form
           className="panel stack"

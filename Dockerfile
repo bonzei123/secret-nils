@@ -26,6 +26,7 @@ RUN apt-get update \
 ENV NODE_ENV=production \
     PORT=1488 \
     HOST=0.0.0.0 \
+    POLICIES_PATH=/app/data/policies.json \
     npm_config_update_notifier=false
 
 WORKDIR /app
@@ -36,6 +37,7 @@ COPY server/package.json server/package.json
 COPY client/package.json client/package.json
 
 RUN npm ci --omit=dev && npm cache clean --force \
+  && mkdir -p /app/data \
   && chown -R node:node /app
 
 COPY --from=build --chown=node:node /app/shared/src ./shared/src

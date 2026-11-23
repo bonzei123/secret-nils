@@ -8,3 +8,4 @@ export * from "./engine";
 export * from "./view";
 export * from "./protocol";
 export * from "./npc";
+export * from "./policies";

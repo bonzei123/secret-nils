@@ -73,6 +73,8 @@ Dann liefert der Server die gebaute Oberfläche und die Sockets auf `PORT` (Stan
 
 Zum Alleintesten im Vereinsheim „Probespiel mit Platzhaltern“ ankreuzen. Unter fünf Personen setzt der Server Platzhalter dazu, bis der Tisch fünf Sitze hat. Sie spielen nach ihrer Rolle mit und sind markiert. Ab fünf echten Mitgliedern bleibt der Tisch, wie er ist.
 
+Auf der Startseite lassen sich unter „Beschlussvorlagen schreiben“ die mitgelieferten Anträge umformulieren und eigene dazuschreiben. Gespeichert wird das in `data/policies.json` (im Container unter `/app/data`, das Compose-Volume `secret-nils-data` behält den Ordner über Neubauten). Eine schon laufende Sitzung behält ihren Stapel. Die nächste mischt die neue Fassung.
+
 ## Docker
 
 Dasselbe Produktionsbild, ein Container, Port 1488:

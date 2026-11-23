@@ -131,6 +131,8 @@ export interface CreateGameOptions {
   firstPresidentIndex?: number;
   /** Sitze vor dem Verteilen der Rollen mischen. Wird ignoriert, wenn roleOrder gesetzt ist. */
   sitzeMischen?: boolean;
+  /** Ersetzt den Standardstapel und wird wie dieser gemischt. */
+  catalog?: PolicyCard[];
 }
 
 export type ClientAction =

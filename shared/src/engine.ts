@@ -389,7 +389,8 @@ export function createGame(players: CreatePlayerInput[], options: CreateGameOpti
   if (options.drawPile) {
     drawPile = options.drawPile.map((card) => ({ ...card }));
   } else {
-    const dealt = shuffle(createCatalog(), rng);
+    const source = (options.catalog ?? createCatalog()).map((card) => ({ ...card }));
+    const dealt = shuffle(source, rng);
     drawPile = dealt.result;
     rng = dealt.rng;
   }

@@ -9,4 +9,10 @@ services:
     environment:
       PORT: "1488"
       HOST: "0.0.0.0"
+      POLICIES_PATH: /app/data/policies.json
+    volumes:
+      - secret-nils-data:/app/data
     restart: unless-stopped
+
+volumes:
+  secret-nils-data:

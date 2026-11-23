@@ -4,6 +4,7 @@ import path from "node:path";
 import { Server } from "socket.io";
 import type { Ack, ClientState } from "@secret-nils/shared";
 import { RoomManager, type ManagerConfig } from "./manager.js";
+import type { PolicyStore } from "./policy-store.js";
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -33,11 +34,61 @@ function sendFile(res: ServerResponse, filePath: string): void {
   createReadStream(filePath).pipe(res);
 }
 
-function handleHttp(req: IncomingMessage, res: ServerResponse): void {
+function sendJson(res: ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+  res.end(JSON.stringify(body));
+}
+
+function readBody(req: IncomingMessage): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on("data", (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > 100_000) {
+        reject(new Error("zu groß"));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => {
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+      } catch {
+        reject(new Error("kein json"));
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
+function handleHttp(req: IncomingMessage, res: ServerResponse, policies?: PolicyStore): void {
   const url = new URL(req.url ?? "/", "http://localhost");
   if (url.pathname === "/health") {
     res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
     res.end("ok");
+    return;
+  }
+  if (url.pathname === "/api/policies") {
+    if (!policies) {
+      sendJson(res, 503, { error: "Die Beschlussverwaltung ist hier nicht eingeschaltet." });
+      return;
+    }
+    if (req.method === "GET") {
+      sendJson(res, 200, policies.view());
+      return;
+    }
+    if (req.method === "PUT") {
+      void readBody(req)
+        .then((body) => {
+          const result = policies.save(body);
+          sendJson(res, result.ok ? 200 : 400, result.ok ? result : { error: result.error });
+        })
+        .catch(() => sendJson(res, 400, { error: "Die Vorlagen sind so nicht lesbar." }));
+      return;
+    }
+    sendJson(res, 405, { error: "Diese Anfrage kennt die Satzung nicht." });
     return;
   }
   const dist = clientDist();
@@ -66,8 +117,9 @@ function reply(ack: unknown, body: Ack): void {
   if (typeof ack === "function") (ack as (value: Ack) => void)(body);
 }
 
-export function createApp(config: ManagerConfig = {}) {
-  const httpServer = createServer(handleHttp);
+export function createApp(config: ManagerConfig & { policies?: PolicyStore } = {}) {
+  const { policies, ...managerConfig } = config;
+  const httpServer = createServer((req, res) => handleHttp(req, res, policies));
   const io = new Server(httpServer, {
     cors: { origin: true },
     pingInterval: 10_000,
@@ -91,7 +143,12 @@ export function createApp(config: ManagerConfig = {}) {
     }
   };
 
-  manager = new RoomManager({ ...config, onChange: broadcast, onClose: closeRoom });
+  manager = new RoomManager({
+    ...managerConfig,
+    catalog: policies ? () => policies.deck() : managerConfig.catalog,
+    onChange: broadcast,
+    onClose: closeRoom,
+  });
 
   const bind = (socket: BoundSocket, code: string, playerId: string) => {
     if (socket.data.roomCode && socket.data.roomCode !== code) {

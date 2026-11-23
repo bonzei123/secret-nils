@@ -17,6 +17,7 @@ import {
   type ClientState,
   type GameState,
   type LobbyWire,
+  type PolicyCard,
   type TimerChoice,
 } from "@secret-nils/shared";
 
@@ -41,6 +42,8 @@ export interface ManagerConfig {
   createId?: () => string;
   createToken?: () => string;
   createSeed?: () => number;
+  /** Stapel für neue Sitzungen. Ohne Angabe gilt die mitgelieferte Satzung. */
+  catalog?: () => PolicyCard[];
 }
 
 interface Member {
@@ -109,6 +112,7 @@ export class RoomManager {
   private readonly createId: () => string;
   private readonly createToken: () => string;
   private readonly createSeed: () => number;
+  private readonly catalog?: () => PolicyCard[];
   private readonly onChange?: (code: string) => void;
   private readonly onClose?: (code: string, socketIds: string[]) => void;
 
@@ -121,6 +125,7 @@ export class RoomManager {
     this.createId = config.createId ?? (() => randomUUID());
     this.createToken = config.createToken ?? (() => randomBytes(18).toString("hex"));
     this.createSeed = config.createSeed ?? (() => randomInt(1, 2_147_483_646));
+    this.catalog = config.catalog;
     this.onChange = config.onChange;
     this.onClose = config.onClose;
   }
@@ -310,7 +315,11 @@ export class RoomManager {
     try {
       room.data.room.game = createGame(
         room.data.room.members.map((member) => ({ id: member.id, name: member.name })),
-        { seed: this.createSeed(), sitzeMischen: room.data.room.options.sitzeMischen },
+        {
+          seed: this.createSeed(),
+          sitzeMischen: room.data.room.options.sitzeMischen,
+          catalog: this.catalog?.(),
+        },
       );
     } catch (error) {
       room.data.room.members = room.data.room.members.filter((member) => !member.npc);
