@@ -21,7 +21,10 @@ export interface LobbyWire {
   options: {
     turnTimerSeconds: TimerChoice;
     sitzeMischen: boolean;
+    probeMitNpcs: boolean;
   };
+  /** Namen der Platzhalter, die beim Start auf fünf Sitze auffüllen. */
+  npcFillers: string[];
   canStart: boolean;
   blockReason: string | null;
   timerChoices: readonly number[];
@@ -67,6 +70,7 @@ export interface KickPayload {
 export interface OptionsPayload {
   turnTimerSeconds?: unknown;
   sitzeMischen?: unknown;
+  probeMitNpcs?: unknown;
 }
 
 export interface ReconnectPayload {

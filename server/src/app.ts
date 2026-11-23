@@ -143,7 +143,7 @@ export function createApp(config: ManagerConfig = {}) {
     socket.on("options", (payload: unknown, ack?: unknown) => {
       const located = current(socket);
       if (!located) return reply(ack, { ok: false, error: "Du bist in keinem Vereinsheim." });
-      const body = (payload ?? {}) as { turnTimerSeconds?: unknown; sitzeMischen?: unknown };
+      const body = (payload ?? {}) as { turnTimerSeconds?: unknown; sitzeMischen?: unknown; probeMitNpcs?: unknown };
       const result = manager.setOptions(located.code, located.playerId, body);
       reply(ack, result.ok ? { ok: true } : result);
     });

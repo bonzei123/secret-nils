@@ -49,6 +49,8 @@ export interface Player {
   seat: number;
   role: Role;
   alive: boolean;
+  /** Serverseitiger Platzhalter. Steht in der Spielersicht, verrät aber keine Rolle. */
+  npc: boolean;
 }
 
 export interface SecretNote {

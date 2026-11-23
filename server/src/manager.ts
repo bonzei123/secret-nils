@@ -2,10 +2,13 @@ import { randomBytes, randomInt, randomUUID } from "node:crypto";
 import {
   applyAction,
   applyTimeout,
+  chooseNpcAction,
   CODE_ALPHABET,
   createGame,
   isClientAction,
   normalizeRoomCode,
+  npcSeatNames,
+  PROBE_TABLE_SIZE,
   projectView,
   sanitizeName,
   TIMER_CHOICES,
@@ -47,11 +50,13 @@ interface Member {
   socketId: string | null;
   ready: boolean;
   connected: boolean;
+  npc: boolean;
 }
 
 interface RoomOptions {
   turnTimerSeconds: TimerChoice;
   sitzeMischen: boolean;
+  probeMitNpcs: boolean;
 }
 
 interface Room {
@@ -143,7 +148,7 @@ export class RoomManager {
       hostId: member.id,
       status: "lobby",
       members: [member],
-      options: { turnTimerSeconds, sitzeMischen: input.sitzeMischen === true },
+      options: { turnTimerSeconds, sitzeMischen: input.sitzeMischen === true, probeMitNpcs: false },
       game: null,
       timer: null,
       timerKey: null,
@@ -236,7 +241,7 @@ export class RoomManager {
   setOptions(
     code: string,
     playerId: string,
-    input: { turnTimerSeconds?: unknown; sitzeMischen?: unknown },
+    input: { turnTimerSeconds?: unknown; sitzeMischen?: unknown; probeMitNpcs?: unknown },
   ): RoomResult<{ updated: true }> {
     const room = this.requireMember(code, playerId);
     if (!room.ok) return room;
@@ -250,6 +255,10 @@ export class RoomManager {
     if (input.sitzeMischen !== undefined) {
       if (typeof input.sitzeMischen !== "boolean") return { ok: false, error: "Die Sitzordnung ist so nicht lesbar." };
       room.data.room.options.sitzeMischen = input.sitzeMischen;
+    }
+    if (input.probeMitNpcs !== undefined) {
+      if (typeof input.probeMitNpcs !== "boolean") return { ok: false, error: "Das Probespiel ist so nicht lesbar." };
+      room.data.room.options.probeMitNpcs = input.probeMitNpcs;
     }
     this.touch(code);
     return { ok: true, data: { updated: true } };
@@ -292,19 +301,30 @@ export class RoomManager {
     if (room.data.room.status !== "lobby") return { ok: false, error: "Die Sitzung läuft schon." };
     const reason = this.blockReason(room.data.room);
     if (reason) return { ok: false, error: reason };
+    const fillers = this.fillerNames(room.data.room);
+    const npcs = fillers.map((name) => this.makeNpc(name));
+    room.data.room.members.push(...npcs);
     try {
       room.data.room.game = createGame(
         room.data.room.members.map((member) => ({ id: member.id, name: member.name })),
         { seed: this.createSeed(), sitzeMischen: room.data.room.options.sitzeMischen },
       );
     } catch (error) {
+      room.data.room.members = room.data.room.members.filter((member) => !member.npc);
       const message = error instanceof Error ? error.message : "Die Sitzung konnte nicht eröffnet werden.";
       return { ok: false, error: message };
     }
+    const npcIds = new Set(npcs.map((member) => member.id));
+    for (const player of room.data.room.game.players) player.npc = npcIds.has(player.id);
+    if (npcs.length > 0) {
+      this.note(
+        room.data.room.game,
+        `Probespiel: ${npcs.map((member) => member.name).join(", ")} sitzen als Platzhalter mit am Tisch.`,
+      );
+    }
     room.data.room.status = "playing";
     for (const member of room.data.room.members) this.clearGrace(this.graceKey(code, member.id));
-    this.schedule(room.data.room, null);
-    this.touch(code);
+    this.afterChange(room.data.room, null);
     return { ok: true, data: { started: true } };
   }
 
@@ -320,6 +340,10 @@ export class RoomManager {
     room.data.room.status = "lobby";
     room.data.room.timerKey = null;
     room.data.room.turnDeadline = null;
+    room.data.room.members = room.data.room.members.filter((member) => !member.npc);
+    if (!room.data.room.members.some((member) => member.id === room.data.room.hostId)) {
+      room.data.room.hostId = room.data.room.members[0]?.id ?? room.data.room.hostId;
+    }
     for (const member of room.data.room.members) member.ready = false;
     this.touch(code);
     return { ok: true, data: { rematch: true } };
@@ -331,13 +355,13 @@ export class RoomManager {
     if (!room.data.room.game || room.data.room.status !== "playing") {
       return { ok: false, error: "Die Sitzung hat noch nicht begonnen." };
     }
+    if (room.data.member.npc) return { ok: false, error: "Platzhalter ziehen selbst." };
     if (!isClientAction(action)) return { ok: false, error: "Unverständliche Aktion." };
     const previous = room.data.room.timerKey;
     const result = applyAction(room.data.room.game, { ...action, playerId } as ClientAction & { playerId: string });
     if (!result.ok) return { ok: false, error: result.error };
     room.data.room.game = result.state;
-    this.schedule(room.data.room, previous);
-    this.touch(code);
+    this.afterChange(room.data.room, previous);
     return { ok: true, data: { applied: true } };
   }
 
@@ -388,6 +412,7 @@ export class RoomManager {
         isYou: member.id === playerId,
       })),
       options: { ...room.options },
+      npcFillers: this.fillerNames(room),
       canStart: room.status === "lobby" && blockReason === null && room.hostId === playerId,
       blockReason,
       timerChoices: TIMER_CHOICES,
@@ -395,11 +420,21 @@ export class RoomManager {
   }
 
   private blockReason(room: Room): string | null {
-    if (room.members.length < 5) return "Mindestens 5 Mitglieder, höchstens 10.";
-    if (room.members.length > 10) return "Höchstens 10 Mitglieder.";
-    if (room.members.some((member) => !member.connected)) return "Jemand ist gerade nicht verbunden.";
-    if (room.members.some((member) => !member.ready)) return "Noch nicht alle haben bereit gemeldet.";
+    const humans = room.members.filter((member) => !member.npc);
+    if (humans.length > 10) return "Höchstens 10 Mitglieder.";
+    if (!room.options.probeMitNpcs && humans.length < 5) return "Mindestens 5 Mitglieder, höchstens 10.";
+    if (humans.length < 1) return "Mindestens eine Person muss im Vereinsheim sitzen.";
+    if (humans.some((member) => !member.connected)) return "Jemand ist gerade nicht verbunden.";
+    if (humans.some((member) => !member.ready)) return "Noch nicht alle haben bereit gemeldet.";
     return null;
+  }
+
+  private fillerNames(room: Room): string[] {
+    if (room.status !== "lobby" || !room.options.probeMitNpcs) return [];
+    return npcSeatNames(
+      room.members.map((member) => member.name),
+      PROBE_TABLE_SIZE - room.members.filter((member) => !member.npc).length,
+    );
   }
 
   private makeMember(name: string): Member {
@@ -410,6 +445,19 @@ export class RoomManager {
       socketId: null,
       ready: false,
       connected: true,
+      npc: false,
+    };
+  }
+
+  private makeNpc(name: string): Member {
+    return {
+      id: this.createId(),
+      name,
+      token: "",
+      socketId: null,
+      ready: true,
+      connected: true,
+      npc: true,
     };
   }
 
@@ -447,6 +495,43 @@ export class RoomManager {
     this.touch(room.code);
   }
 
+  private afterChange(room: Room, previousKey: string | null): void {
+    const paused = this.driveNpcs(room);
+    if (!paused) this.schedule(room, previousKey);
+    this.touch(room.code);
+  }
+
+  /** Platzhalter ziehen sofort. Bei sehr langen Ketten geht es nach 50 ms weiter, ohne den Menschentimer zu verbrauchen. */
+  private driveNpcs(room: Room): boolean {
+    const npcIds = new Set(room.members.filter((member) => member.npc).map((member) => member.id));
+    if (npcIds.size === 0 || !room.game) return false;
+    for (let step = 0; step < 240 && room.game.phase !== "game_over"; step += 1) {
+      const action = chooseNpcAction(room.game, npcIds);
+      if (!action) return false;
+      const result = applyAction(room.game, action);
+      if (!result.ok) return false;
+      room.game = result.state;
+    }
+    if (room.game.phase !== "game_over" && chooseNpcAction(room.game, npcIds)) {
+      this.clearTurn(room);
+      room.timerKey = "npc";
+      room.turnDeadline = this.now() + 50;
+      room.timer = this.scheduler.set(() => this.continueNpcs(room.code), 50);
+      return true;
+    }
+    return false;
+  }
+
+  private continueNpcs(code: string): void {
+    const room = this.rooms.get(code);
+    if (!room?.game || room.status !== "playing") return;
+    room.timer = null;
+    const previous = room.timerKey;
+    const paused = this.driveNpcs(room);
+    if (!paused) this.schedule(room, previous);
+    this.touch(code);
+  }
+
   private schedule(room: Room, previousKey: string | null): void {
     if (room.status !== "playing" || !room.game || room.game.phase === "game_over") {
       this.clearTurn(room);
@@ -470,8 +555,7 @@ export class RoomManager {
     const previous = room.timerKey;
     const result = applyTimeout(room.game);
     if (result.ok) room.game = result.state;
-    this.schedule(room, previous);
-    this.touch(code);
+    this.afterChange(room, previous);
   }
 
   private armGrace(room: Room, playerId: string): void {
@@ -488,7 +572,7 @@ export class RoomManager {
   }
 
   private armAbandon(room: Room): void {
-    if (room.members.some((member) => member.connected)) {
+    if (room.members.some((member) => member.connected && !member.npc)) {
       this.clearAbandon(room);
       return;
     }
@@ -497,7 +581,7 @@ export class RoomManager {
       room.abandonTimer = null;
       const current = this.rooms.get(room.code);
       if (!current) return;
-      if (current.members.some((member) => member.connected)) return;
+      if (current.members.some((member) => member.connected && !member.npc)) return;
       this.destroy(current);
     }, this.emptyRoomMs);
   }
@@ -532,6 +616,11 @@ export class RoomManager {
 
   private graceKey(code: string, playerId: string): string {
     return `${code}:${playerId}`;
+  }
+
+  private note(game: GameState, text: string): void {
+    game.logSeq += 1;
+    game.log.push({ id: game.logSeq, text, tone: "info" });
   }
 
   private touch(code: string): void {

@@ -109,7 +109,7 @@ export function useClub() {
     async ready(ready: boolean) {
       return accept(await emit("ready", { ready }));
     },
-    async options(input: { turnTimerSeconds?: number; sitzeMischen?: boolean }) {
+    async options(input: { turnTimerSeconds?: number; sitzeMischen?: boolean; probeMitNpcs?: boolean }) {
       return accept(await emit("options", input));
     },
     async kick(playerId: string) {

@@ -7,3 +7,4 @@ export * from "./names";
 export * from "./engine";
 export * from "./view";
 export * from "./protocol";
+export * from "./npc";

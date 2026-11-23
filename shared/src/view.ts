@@ -33,6 +33,7 @@ export interface PublicPlayerView {
   termLimited: boolean;
   voted: boolean;
   ballot: Ballot | null;
+  npc: boolean;
 }
 
 export interface PolicyView {
@@ -216,6 +217,7 @@ export function projectView(
       termLimited,
       voted: state.phase === "voting" && Boolean(state.votes[player.id]),
       ballot,
+      npc: player.npc,
     };
   });
 

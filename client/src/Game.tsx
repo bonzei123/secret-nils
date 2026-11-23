@@ -140,6 +140,7 @@ function Table({
                     <div className="person-name">{player.name}</div>
                     <div className="badges">
                       {player.isYou && <span className="badge">Du</span>}
+                      {player.npc && <span className="badge">Platzhalter</span>}
                       {player.isPresident && <span className="badge warn">Vorsitz</span>}
                       {player.isChancellor && <span className="badge warn">Kasse</span>}
                       {player.isNominee && <span className="badge warn">Vorschlag</span>}

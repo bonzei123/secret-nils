@@ -5,7 +5,7 @@ import { Logo } from "./ui";
 interface LobbyProps {
   state: ClientState;
   onReady: (ready: boolean) => Promise<unknown>;
-  onOptions: (input: { turnTimerSeconds?: number; sitzeMischen?: boolean }) => Promise<unknown>;
+  onOptions: (input: { turnTimerSeconds?: number; sitzeMischen?: boolean; probeMitNpcs?: boolean }) => Promise<unknown>;
   onKick: (playerId: string) => Promise<unknown>;
   onStart: () => Promise<unknown>;
   onLeave: () => Promise<unknown>;
@@ -76,6 +76,17 @@ export function Lobby({ state, onReady, onOptions, onKick, onStart, onLeave }: L
                 )}
               </li>
             ))}
+            {lobby.npcFillers.map((name) => (
+              <li key={name} className="member">
+                <div>
+                  <strong>{name}</strong>
+                  <div className="badges">
+                    <span className="badge">Platzhalter</span>
+                    <span className="badge good">setzt sich beim Start</span>
+                  </div>
+                </div>
+              </li>
+            ))}
           </ul>
           <div className="btn-row" style={{ marginTop: "0.8rem" }}>
             <button type="button" className="btn" onClick={() => void onReady(!you?.ready)}>
@@ -108,8 +119,21 @@ export function Lobby({ state, onReady, onOptions, onKick, onStart, onLeave }: L
             />
             <span>Sitze zu Beginn mischen.</span>
           </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              disabled={!isHost}
+              checked={lobby.options.probeMitNpcs}
+              onChange={(event) => void onOptions({ probeMitNpcs: event.target.checked })}
+            />
+            <span>Probespiel mit Platzhaltern, wenn weniger als fünf da sind.</span>
+          </label>
           <p className="meta-line">
-            {lobby.players.length}/10 Mitglieder. Es braucht 5 bis 10, alle bereit und verbunden.
+            {lobby.options.probeMitNpcs
+              ? lobby.npcFillers.length > 0
+                ? `${lobby.players.length} Personen, dazu ${lobby.npcFillers.length} Platzhalter bis fünf Sitze. Alle echten Mitglieder bereit und verbunden.`
+                : `${lobby.players.length}/10 Mitglieder. Genug Personen, die Platzhalter bleiben draußen.`
+              : `${lobby.players.length}/10 Mitglieder. Es braucht 5 bis 10, alle bereit und verbunden.`}
           </p>
           {isHost ? (
             <>

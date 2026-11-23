@@ -114,6 +114,7 @@ describe("Vereinsheim", () => {
     expect(manager.viewFor(code, members[1]!.playerId)?.lobby.options).toEqual({
       turnTimerSeconds: 45,
       sitzeMischen: true,
+      probeMitNpcs: false,
     });
   });
 
@@ -169,5 +170,53 @@ describe("Vereinsheim", () => {
     expect(table.manager.hasRoom(table.code)).toBe(true);
     table.clock.advance(1_000);
     expect(table.manager.hasRoom(table.code)).toBe(false);
+  });
+
+  it("füllt ein Probespiel mit Platzhaltern auf und lässt sie ziehen", () => {
+    const { manager, clock, code, members } = openTable(1);
+    expect(manager.start(code, members[0]!.playerId).ok).toBe(false);
+    expect(manager.setOptions(code, members[0]!.playerId, { probeMitNpcs: true }).ok).toBe(true);
+    const lobby = manager.viewFor(code, members[0]!.playerId);
+    expect(lobby?.lobby.npcFillers).toHaveLength(4);
+    expect(lobby?.lobby.canStart).toBe(false);
+    expect(manager.setReady(code, members[0]!.playerId, true).ok).toBe(true);
+    expect(manager.start(code, members[0]!.playerId).ok).toBe(true);
+
+    const game = manager.debugGame(code);
+    expect(game?.players).toHaveLength(5);
+    expect(game?.players.filter((player) => player.npc)).toHaveLength(4);
+    expect(game?.phase).toBe("briefing");
+    const humanAck = game?.briefingAck[members[0]!.playerId];
+    expect(humanAck).toBeFalsy();
+    for (const player of game?.players ?? []) {
+      if (player.npc) expect(game?.briefingAck[player.id]).toBe(true);
+    }
+
+    expect(manager.act(code, members[0]!.playerId, { type: "ack_briefing" }).ok).toBe(true);
+    const after = manager.debugGame(code);
+    const president = after?.players[after.presidentIndex];
+    if (!president || !after) throw new Error("Kein Vorsitz");
+    if (president.npc) expect(after.phase).toBe("voting");
+    else expect(after.phase).toBe("nominating");
+
+    const npc = after.players.find((player) => player.npc);
+    if (!npc) throw new Error("Kein Platzhalter");
+    expect(manager.act(code, npc.id, { type: "ack_briefing" }).ok).toBe(false);
+
+    const view = manager.viewFor(code, members[0]!.playerId);
+    expect(view?.game?.players.filter((player) => player.npc)).toHaveLength(4);
+    const json = JSON.stringify(view);
+    expect(json).not.toContain('"drawPile"');
+    if (view?.game?.you.role === "ehrliches_mitglied") {
+      expect(json).not.toContain('"role":"nils"');
+      expect(json).not.toContain('"role":"linientreuer"');
+    }
+
+    manager.attach(code, members[0]!.playerId, "solo");
+    manager.noteSocketGone("solo");
+    clock.advance(119_000);
+    expect(manager.hasRoom(code)).toBe(true);
+    clock.advance(1_000);
+    expect(manager.hasRoom(code)).toBe(false);
   });
 });

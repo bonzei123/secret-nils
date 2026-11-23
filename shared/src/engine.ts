@@ -382,6 +382,7 @@ export function createGame(players: CreatePlayerInput[], options: CreateGameOpti
     seat,
     role: roles[seat] ?? "ehrliches_mitglied",
     alive: true,
+    npc: false,
   }));
 
   let drawPile: PolicyCard[];

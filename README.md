@@ -71,6 +71,8 @@ npm start
 
 Dann liefert der Server die gebaute Oberfläche und die Sockets auf `PORT` (Standard 3001).
 
+Zum Alleintesten im Vereinsheim „Probespiel mit Platzhaltern“ ankreuzen. Unter fünf Personen setzt der Server Platzhalter dazu, bis der Tisch fünf Sitze hat. Sie spielen nach ihrer Rolle mit und sind markiert. Ab fünf echten Mitgliedern bleibt der Tisch, wie er ist.
+
 ## Docker
 
 Dasselbe Produktionsbild, ein Container, Port 1488:
