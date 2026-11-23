@@ -73,17 +73,17 @@ Dann liefert der Server die gebaute Oberfläche und die Sockets auf `PORT` (Stan
 
 ## Docker
 
-Dasselbe Produktionsbild, ein Container, Port 3001:
+Dasselbe Produktionsbild, ein Container, Port 1488:
 
 ```bash
 docker compose up --build
 ```
 
-Im Browser [http://localhost:3001](http://localhost:3001). `docker compose down` stoppt das Vereinsheim. Nur das Image, ohne Compose:
+Im Browser [http://localhost:1488](http://localhost:1488). `docker compose down` stoppt das Vereinsheim. Nur das Image, ohne Compose:
 
 ```bash
 docker build -t secret-nils .
-docker run --rm -p 3001:3001 secret-nils
+docker run --rm -p 1488:1488 secret-nils
 ```
 
 Das Image baut die Oberfläche, installiert danach nur die Laufzeitabhängigkeiten und startet `npm start`. Der Container prüft `/health`. Sitzungen liegen im Speicher: ein neuer Container beginnt mit leeren Vereinsheimen.
