@@ -1,11 +1,13 @@
 import { useState } from "react";
 import type { ClientState, TimerChoice } from "@secret-nils/shared";
+import { usePublicOrigin } from "./origin";
+import { Qr } from "./Qr";
 import { Logo, Wordmark } from "./ui";
 
 interface LobbyProps {
   state: ClientState;
   onReady: (ready: boolean) => Promise<unknown>;
-  onOptions: (input: { turnTimerSeconds?: number; sitzeMischen?: boolean; probeMitNpcs?: boolean }) => Promise<unknown>;
+  onOptions: (input: { turnTimerSeconds?: number; sitzeMischen?: boolean; probeMitNpcs?: boolean; zuschauer?: boolean }) => Promise<unknown>;
   onKick: (playerId: string) => Promise<unknown>;
   onStart: () => Promise<unknown>;
   onLeave: () => Promise<unknown>;
@@ -16,7 +18,9 @@ export function Lobby({ state, onReady, onOptions, onKick, onStart, onLeave }: L
   const you = lobby.players.find((player) => player.isYou);
   const isHost = lobby.youId === lobby.hostId;
   const [copied, setCopied] = useState("");
-  const link = `${window.location.origin}/?beitritt=${lobby.code}`;
+  const origin = usePublicOrigin();
+  const link = `${origin}/?beitritt=${lobby.code}`;
+  const watching = lobby.youAreWatching;
 
   async function copy(value: string, label: string) {
     try {
@@ -55,7 +59,20 @@ export function Lobby({ state, onReady, onOptions, onKick, onStart, onLeave }: L
           </button>
         </div>
       </div>
+      <section className="qr-panel">
+        <a href={link} aria-label="Beitrittslink öffnen">
+          <Qr value={link} />
+        </a>
+        <div>
+          <p className="kicker">Direktlink</p>
+          <a className="qr-link" href={link}>
+            {link}
+          </a>
+          <p className="meta-line">Scannen öffnet den Beitritt mit diesem Raum. Name eintragen, dann Platz nehmen oder nur zuschauen.</p>
+        </div>
+      </section>
       {copied && <p className="meta-line">{copied}</p>}
+      {watching && <p className="note-warn">Du bist auf der Tribüne, {lobby.youName}. Sobald die Sitzung läuft, siehst du den Tisch, ohne mitzuspielen.</p>}
       <section className="panel probe-box">
         <label className="check">
           <input
@@ -103,11 +120,16 @@ export function Lobby({ state, onReady, onOptions, onKick, onStart, onLeave }: L
               </li>
             ))}
           </ul>
-          <div className="btn-row" style={{ marginTop: "0.8rem" }}>
-            <button type="button" className="btn" onClick={() => void onReady(!you?.ready)}>
-              {you?.ready ? "Doch nicht bereit" : "Ich bin bereit"}
-            </button>
-          </div>
+          {(lobby.spectators ?? []).length > 0 && (
+            <p className="meta-line">Tribüne: {lobby.spectators.map((spectator) => spectator.name).join(", ")}</p>
+          )}
+          {!watching && (
+            <div className="btn-row" style={{ marginTop: "0.8rem" }}>
+              <button type="button" className="btn" onClick={() => void onReady(!you?.ready)}>
+                {you?.ready ? "Doch nicht bereit" : "Ich bin bereit"}
+              </button>
+            </div>
+          )}
         </section>
         <section className="panel stack">
           <h2>Hausordnung</h2>
@@ -133,6 +155,17 @@ export function Lobby({ state, onReady, onOptions, onKick, onStart, onLeave }: L
               onChange={(event) => void onOptions({ sitzeMischen: event.target.checked })}
             />
             <span>Sitze zu Beginn mischen.</span>
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              disabled={!isHost}
+              checked={Boolean(lobby.options.zuschauer)}
+              onChange={(event) => void onOptions({ zuschauer: event.target.checked })}
+            />
+            <span>
+              <strong>Zuschauer ohne Sitz.</strong> Nur angehakt können andere die laufende Sitzung von der Tribüne sehen.
+            </span>
           </label>
           <p className="meta-line">
             {lobby.options.probeMitNpcs

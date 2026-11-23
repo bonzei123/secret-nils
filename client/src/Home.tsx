@@ -5,7 +5,7 @@ import { Logo, Wordmark } from "./ui";
 interface HomeProps {
   connected: boolean;
   onCreate: (name: string, timer: number, shuffle: boolean, probe: boolean) => Promise<unknown>;
-  onJoin: (code: string, name: string) => Promise<unknown>;
+  onJoin: (code: string, name: string, watch: boolean) => Promise<unknown>;
 }
 
 export function Home({ connected, onCreate, onJoin }: HomeProps) {
@@ -15,6 +15,7 @@ export function Home({ connected, onCreate, onJoin }: HomeProps) {
   const [timer, setTimer] = useState<number>(90);
   const [shuffle, setShuffle] = useState(false);
   const [probe, setProbe] = useState(false);
+  const [watchOnly, setWatchOnly] = useState(false);
   const [busy, setBusy] = useState(false);
 
   function remember(next: string) {
@@ -80,10 +81,11 @@ export function Home({ connected, onCreate, onJoin }: HomeProps) {
           onSubmit={(event) => {
             event.preventDefault();
             setBusy(true);
-            void onJoin(code, name).finally(() => setBusy(false));
+            void onJoin(code, name, watchOnly).finally(() => setBusy(false));
           }}
         >
           <h2>Mit Code eintreten</h2>
+          {preset && <p className="meta-line">Einladung für Raum {preset}. Name eintragen, dann Platz nehmen oder nur zuschauen.</p>}
           <label>
             Dein Name im Protokoll
             <input value={name} maxLength={20} required minLength={2} onChange={(event) => remember(event.target.value)} />
@@ -100,13 +102,17 @@ export function Home({ connected, onCreate, onJoin }: HomeProps) {
               placeholder="K7MP"
             />
           </label>
+          <label className="check">
+            <input type="checkbox" checked={watchOnly} onChange={(event) => setWatchOnly(event.target.checked)} />
+            <span>Nur zuschauen, ohne Sitz. Geht nur, wenn der Vorstand die Tribüne geöffnet hat.</span>
+          </label>
           <button className="btn brass" type="submit" disabled={!connected || busy}>
-            Platz nehmen
+            {watchOnly ? "Auf die Tribüne" : "Platz nehmen"}
           </button>
         </form>
       </div>
-      <section className="howto">
-        <h2>So läuft ein Zug</h2>
+      <details className="howto">
+        <summary>So läuft ein Zug</summary>
         <p className="howto-lead">
           Ihr müsst nichts auswendig können. Wenn ihr dran seid, sagt der Bildschirm, welcher Knopf als Nächstes kommt. Das hier ist die Reihenfolge.
         </p>
@@ -153,7 +159,7 @@ export function Home({ connected, onCreate, onJoin }: HomeProps) {
             </article>
           ))}
         </div>
-      </section>
+      </details>
       <section className="rules">
         <h2>Satzung in Kurzform</h2>
         {RULES.map((rule) => (

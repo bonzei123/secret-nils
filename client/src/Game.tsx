@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { RULES, SEAT_COLORS, type ClientAction, type ClientState, type PolicyView } from "@secret-nils/shared";
+import { ProtokollSheet } from "./Protokoll";
 import { Leaf, Logo, SecretCover, Wordmark, formatClock, useCountdown } from "./ui";
 
 interface GameProps {
@@ -8,12 +9,13 @@ interface GameProps {
   onAct: (action: ClientAction) => Promise<unknown>;
   onRematch: () => Promise<unknown>;
   onLeave: () => Promise<unknown>;
+  onOptions: (input: { zuschauer?: boolean }) => Promise<unknown>;
 }
 
-export function Game({ state, connected, onAct, onRematch, onLeave }: GameProps) {
+export function Game({ state, connected, onAct, onRematch, onLeave, onOptions }: GameProps) {
   const game = state.game;
   if (!game) return null;
-  return <Table state={state} game={game} connected={connected} onAct={onAct} onRematch={onRematch} onLeave={onLeave} />;
+  return <Table state={state} game={game} connected={connected} onAct={onAct} onRematch={onRematch} onLeave={onLeave} onOptions={onOptions} />;
 }
 
 function Table({
@@ -23,6 +25,7 @@ function Table({
   onAct,
   onRematch,
   onLeave,
+  onOptions,
 }: GameProps & { game: NonNullable<ClientState["game"]> }) {
   const [busy, setBusy] = useState(false);
   const [secret, setSecret] = useState(false);
@@ -81,6 +84,19 @@ function Table({
       {!connected && <p className="conn-warn">Verbindung weg. Der Ausweis bleibt auf diesem Gerät gültig.</p>}
       {!game.you.alive && game.phase !== "game_over" && (
         <p className="note-warn">Du wurdest nicht entlastet. Du schaust zu, stimmst aber nicht mehr ab.</p>
+      )}
+      {isHost && (
+        <label className="check tribune-toggle">
+          <input
+            type="checkbox"
+            checked={Boolean(state.lobby.options.zuschauer)}
+            onChange={(event) => void onOptions({ zuschauer: event.target.checked })}
+          />
+          <span>Zuschauer ohne Sitz zulassen</span>
+        </label>
+      )}
+      {state.lobby.spectators.length > 0 && (
+        <p className="meta-line">Tribüne: {state.lobby.spectators.map((spectator) => spectator.name).join(", ")}</p>
       )}
 
       <div className="table-grid">
@@ -295,17 +311,21 @@ function Table({
           <div className="win">
             <span className={`role-stamp ${game.winner === "verein" ? "verein" : ""}`}>{game.winStamp}</span>
             <p>{game.winBody}</p>
-            <ul className="reveal">
-              {game.revealed?.map((player) => (
-                <li key={player.id} className={player.role === "ehrliches_mitglied" ? "verein" : "kluengel"}>
-                  <strong>{player.name}</strong>
-                  <span>
-                    {player.roleTitle}
-                    {!player.alive ? " · ausgeschlossen" : ""}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            {game.protokoll ? (
+              <ProtokollSheet protokoll={game.protokoll} />
+            ) : (
+              <ul className="reveal">
+                {game.revealed?.map((player) => (
+                  <li key={player.id} className={player.role === "ehrliches_mitglied" ? "verein" : "kluengel"}>
+                    <strong>{player.name}</strong>
+                    <span>
+                      {player.roleTitle}
+                      {!player.alive ? " · ausgeschlossen" : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
             {isHost ? (
               <button type="button" className="btn brass" onClick={() => void onRematch()}>
                 Neue Sitzung im selben Vereinsheim

@@ -6,6 +6,14 @@ import type { Ack, ClientState } from "@secret-nils/shared";
 import { RoomManager, type ManagerConfig } from "./manager.js";
 import { passesPolicyPassword } from "./password.js";
 import type { PolicyStore } from "./policy-store.js";
+import type { SummaryStore } from "./summary-store.js";
+
+interface HttpContext {
+  policies?: PolicyStore;
+  policyPassword?: string;
+  summaries?: SummaryStore;
+  publicOrigin?: string;
+}
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -64,14 +72,30 @@ function readBody(req: IncomingMessage): Promise<unknown> {
   });
 }
 
-function handleHttp(req: IncomingMessage, res: ServerResponse, policies?: PolicyStore, policyPassword?: string): void {
+function handleHttp(req: IncomingMessage, res: ServerResponse, ctx: HttpContext): void {
   const url = new URL(req.url ?? "/", "http://localhost");
   if (url.pathname === "/health") {
     res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
     res.end("ok");
     return;
   }
+  if (url.pathname === "/api/site") {
+    sendJson(res, 200, { origin: ctx.publicOrigin ?? null });
+    return;
+  }
+  const protokollMatch = url.pathname.match(/^\/api\/protokoll\/([A-Za-z0-9_-]{8,40})$/);
+  if (protokollMatch) {
+    const sheet = ctx.summaries?.get(protokollMatch[1] ?? "");
+    if (!sheet) {
+      sendJson(res, 404, { error: "Dieses Sitzungsprotokoll liegt nicht mehr aus." });
+      return;
+    }
+    sendJson(res, 200, sheet);
+    return;
+  }
   if (url.pathname === "/api/policies") {
+    const policies = ctx.policies;
+    const policyPassword = ctx.policyPassword;
     if (!policies) {
       sendJson(res, 503, { error: "Die Beschlussverwaltung ist hier nicht eingeschaltet." });
       return;
@@ -123,9 +147,11 @@ function reply(ack: unknown, body: Ack): void {
   if (typeof ack === "function") (ack as (value: Ack) => void)(body);
 }
 
-export function createApp(config: ManagerConfig & { policies?: PolicyStore; policyPassword?: string } = {}) {
-  const { policies, policyPassword, ...managerConfig } = config;
-  const httpServer = createServer((req, res) => handleHttp(req, res, policies, policyPassword));
+export function createApp(
+  config: ManagerConfig & { policies?: PolicyStore; policyPassword?: string; summaries?: SummaryStore; publicOrigin?: string } = {},
+) {
+  const { policies, policyPassword, summaries, publicOrigin, ...managerConfig } = config;
+  const httpServer = createServer((req, res) => handleHttp(req, res, { policies, policyPassword, summaries, publicOrigin }));
   const io = new Server(httpServer, {
     cors: { origin: true },
     pingInterval: 10_000,
@@ -134,7 +160,7 @@ export function createApp(config: ManagerConfig & { policies?: PolicyStore; poli
 
   let manager!: RoomManager;
   const broadcast = (code: string) => {
-    for (const member of manager.memberSocketIds(code)) {
+    for (const member of manager.audience(code)) {
       if (!member.socketId) continue;
       const sock = io.sockets.sockets.get(member.socketId);
       const state: ClientState | null = manager.viewFor(code, member.id);
@@ -154,6 +180,13 @@ export function createApp(config: ManagerConfig & { policies?: PolicyStore; poli
     catalog: policies ? () => policies.deck() : managerConfig.catalog,
     onChange: broadcast,
     onClose: closeRoom,
+    onProtokoll: (sheet) => {
+      try {
+        summaries?.put(sheet);
+      } catch {
+        /* Die Übersicht bleibt in der laufenden Sitzung. */
+      }
+    },
   });
 
   const bind = (socket: BoundSocket, code: string, playerId: string) => {
@@ -194,6 +227,14 @@ export function createApp(config: ManagerConfig & { policies?: PolicyStore; poli
       reply(ack, { ok: true, ...result.data });
     });
 
+    socket.on("watch", (payload: unknown, ack?: unknown) => {
+      const body = (payload ?? {}) as { code?: unknown; name?: unknown };
+      const result = manager.watchRoom(body.code, body.name);
+      if (!result.ok) return reply(ack, result);
+      bind(socket, result.data.code, result.data.playerId);
+      reply(ack, { ok: true, ...result.data });
+    });
+
     socket.on("reconnect", (payload: unknown, ack?: unknown) => {
       const token = (payload as { token?: unknown } | null)?.token;
       const result = manager.reconnect(token);
@@ -213,9 +254,21 @@ export function createApp(config: ManagerConfig & { policies?: PolicyStore; poli
     socket.on("options", (payload: unknown, ack?: unknown) => {
       const located = current(socket);
       if (!located) return reply(ack, { ok: false, error: "Du bist in keinem Vereinsheim." });
-      const body = (payload ?? {}) as { turnTimerSeconds?: unknown; sitzeMischen?: unknown; probeMitNpcs?: unknown };
+      const body = (payload ?? {}) as {
+        turnTimerSeconds?: unknown;
+        sitzeMischen?: unknown;
+        probeMitNpcs?: unknown;
+        zuschauer?: unknown;
+      };
       const result = manager.setOptions(located.code, located.playerId, body);
-      reply(ack, result.ok ? { ok: true } : result);
+      if (!result.ok) return reply(ack, result);
+      for (const socketId of result.data.ejected) {
+        const target = io.sockets.sockets.get(socketId);
+        target?.emit("kicked", { message: "Der Vorstand hat die Tribüne geschlossen." });
+        target?.leave(located.code);
+        target?.disconnect(true);
+      }
+      reply(ack, { ok: true });
     });
 
     socket.on("kick", (payload: unknown, ack?: unknown) => {

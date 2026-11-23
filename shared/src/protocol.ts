@@ -1,5 +1,6 @@
-import type { PlayerView } from "./view";
+import type { PlayerView, SpectatorView } from "./view";
 import { TIMER_CHOICES, type TimerChoice } from "./copy";
+import type { Sitzungsprotokoll } from "./summary";
 import type { ClientAction } from "./types";
 
 export interface LobbyPlayerWire {
@@ -18,10 +19,14 @@ export interface LobbyWire {
   youId: string;
   hostId: string;
   players: LobbyPlayerWire[];
+  youName: string;
+  youAreWatching: boolean;
+  spectators: { name: string }[];
   options: {
     turnTimerSeconds: TimerChoice;
     sitzeMischen: boolean;
     probeMitNpcs: boolean;
+    zuschauer: boolean;
   };
   /** Namen der Platzhalter, die beim Start auf fünf Sitze auffüllen. */
   npcFillers: string[];
@@ -33,11 +38,19 @@ export interface LobbyWire {
 export interface LiveGameView extends PlayerView {
   turnSecondsLeft: number | null;
   turnSecondsTotal: number;
+  protokoll: Sitzungsprotokoll | null;
+}
+
+export interface LiveWatch extends SpectatorView {
+  turnSecondsLeft: number | null;
+  turnSecondsTotal: number;
+  protokoll: Sitzungsprotokoll | null;
 }
 
 export interface ClientState {
   lobby: LobbyWire;
   game: LiveGameView | null;
+  watch: LiveWatch | null;
 }
 
 export interface Ack {
@@ -72,6 +85,7 @@ export interface OptionsPayload {
   turnTimerSeconds?: unknown;
   sitzeMischen?: unknown;
   probeMitNpcs?: unknown;
+  zuschauer?: unknown;
 }
 
 export interface ReconnectPayload {

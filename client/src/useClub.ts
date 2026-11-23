@@ -101,15 +101,15 @@ export function useClub() {
       if (ack.ok && ack.token && ack.code) saveSession({ token: ack.token, code: ack.code });
       return ack;
     },
-    async join(code: string, name: string) {
-      const ack = await accept(await emit("join", { code, name }));
+    async join(code: string, name: string, watch = false) {
+      const ack = await accept(await emit(watch ? "watch" : "join", { code, name }));
       if (ack.ok && ack.token && ack.code) saveSession({ token: ack.token, code: ack.code });
       return ack;
     },
     async ready(ready: boolean) {
       return accept(await emit("ready", { ready }));
     },
-    async options(input: { turnTimerSeconds?: number; sitzeMischen?: boolean; probeMitNpcs?: boolean }) {
+    async options(input: { turnTimerSeconds?: number; sitzeMischen?: boolean; probeMitNpcs?: boolean; zuschauer?: boolean }) {
       return accept(await emit("options", input));
     },
     async kick(playerId: string) {

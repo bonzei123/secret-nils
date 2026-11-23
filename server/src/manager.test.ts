@@ -115,6 +115,7 @@ describe("Vereinsheim", () => {
       turnTimerSeconds: 45,
       sitzeMischen: true,
       probeMitNpcs: false,
+      zuschauer: false,
     });
   });
 
@@ -235,5 +236,32 @@ describe("Vereinsheim", () => {
     expect(manager.hasRoom(code)).toBe(true);
     clock.advance(1_000);
     expect(manager.hasRoom(code)).toBe(false);
+  });
+
+  it("lässt Zuschauer nur auf die Tribüne, wenn der Vorstand sie öffnet", () => {
+    const { manager, code, members } = openTable(5);
+    expect(manager.watchRoom(code, "Gast").ok).toBe(false);
+    expect(manager.setOptions(code, members[0]!.playerId, { zuschauer: true }).ok).toBe(true);
+    const guest = manager.watchRoom(code, "Gast");
+    if (!guest.ok) throw new Error(guest.error);
+    const waiting = manager.viewFor(code, guest.data.playerId);
+    expect(waiting?.lobby.youAreWatching).toBe(true);
+    expect(waiting?.watch).toBeNull();
+    expect(waiting?.lobby.players).toHaveLength(5);
+    for (const member of members) manager.setReady(code, member.playerId, true);
+    expect(manager.start(code, members[0]!.playerId).ok).toBe(true);
+    expect(manager.setOptions(code, members[0]!.playerId, { turnTimerSeconds: 45 }).ok).toBe(false);
+    const live = manager.viewFor(code, guest.data.playerId);
+    expect(live?.game).toBeNull();
+    expect(live?.watch?.players).toHaveLength(5);
+    const json = JSON.stringify(live?.watch);
+    expect(json).not.toContain('"role"');
+    expect(json).not.toContain('"allies"');
+    expect(json).not.toContain('"drawPile"');
+    expect(manager.act(code, guest.data.playerId, { type: "ack_briefing" }).ok).toBe(false);
+    const closed = manager.setOptions(code, members[0]!.playerId, { zuschauer: false });
+    expect(closed.ok).toBe(true);
+    if (closed.ok) expect(closed.data.ejected).toEqual([]);
+    expect(manager.viewFor(code, guest.data.playerId)).toBeNull();
   });
 });

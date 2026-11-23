@@ -9,8 +9,10 @@ import {
   normalizeRoomCode,
   npcSeatNames,
   PROBE_TABLE_SIZE,
+  projectSpectator,
   projectView,
   sanitizeName,
+  buildSitzungsprotokoll,
   TIMER_CHOICES,
   type Ack,
   type ClientAction,
@@ -18,6 +20,7 @@ import {
   type GameState,
   type LobbyWire,
   type PolicyCard,
+  type Sitzungsprotokoll,
   type TimerChoice,
 } from "@secret-nils/shared";
 
@@ -44,6 +47,7 @@ export interface ManagerConfig {
   createSeed?: () => number;
   /** Stapel für neue Sitzungen. Ohne Angabe gilt die mitgelieferte Satzung. */
   catalog?: () => PolicyCard[];
+  onProtokoll?: (summary: Sitzungsprotokoll) => void;
 }
 
 interface Member {
@@ -56,10 +60,19 @@ interface Member {
   npc: boolean;
 }
 
+interface Spectator {
+  id: string;
+  name: string;
+  token: string;
+  socketId: string | null;
+  connected: boolean;
+}
+
 interface RoomOptions {
   turnTimerSeconds: TimerChoice;
   sitzeMischen: boolean;
   probeMitNpcs: boolean;
+  zuschauer: boolean;
 }
 
 interface Room {
@@ -67,8 +80,12 @@ interface Room {
   hostId: string;
   status: "lobby" | "playing";
   members: Member[];
+  spectators: Spectator[];
   options: RoomOptions;
   game: GameState | null;
+  startedAt: number | null;
+  endedAt: number | null;
+  protokoll: Sitzungsprotokoll | null;
   timer: unknown | null;
   timerKey: string | null;
   turnDeadline: number | null;
@@ -115,6 +132,7 @@ export class RoomManager {
   private readonly catalog?: () => PolicyCard[];
   private readonly onChange?: (code: string) => void;
   private readonly onClose?: (code: string, socketIds: string[]) => void;
+  private readonly onProtokoll?: (summary: Sitzungsprotokoll) => void;
 
   constructor(config: ManagerConfig = {}) {
     this.scheduler = config.scheduler ?? realScheduler;
@@ -128,6 +146,7 @@ export class RoomManager {
     this.catalog = config.catalog;
     this.onChange = config.onChange;
     this.onClose = config.onClose;
+    this.onProtokoll = config.onProtokoll;
   }
 
   createRoom(input: { name?: unknown; turnTimerSeconds?: unknown; sitzeMischen?: unknown; probeMitNpcs?: unknown }): RoomResult<{
@@ -156,8 +175,17 @@ export class RoomManager {
       hostId: member.id,
       status: "lobby",
       members: [member],
-      options: { turnTimerSeconds, sitzeMischen: input.sitzeMischen === true, probeMitNpcs: input.probeMitNpcs === true },
+      spectators: [],
+      options: {
+        turnTimerSeconds,
+        sitzeMischen: input.sitzeMischen === true,
+        probeMitNpcs: input.probeMitNpcs === true,
+        zuschauer: false,
+      },
       game: null,
+      startedAt: null,
+      endedAt: null,
+      protokoll: null,
       timer: null,
       timerKey: null,
       turnDeadline: null,
@@ -189,6 +217,30 @@ export class RoomManager {
     return { ok: true, data: { code, playerId: member.id, token: member.token } };
   }
 
+  watchRoom(rawCode: unknown, rawName: unknown): RoomResult<{ code: string; playerId: string; token: string }> {
+    const code = normalizeRoomCode(rawCode);
+    if (!code) return { ok: false, error: "Der Raumcode hat vier Zeichen, ohne 0, 1, I und O. Zum Beispiel K7MP." };
+    const room = this.rooms.get(code);
+    if (!room) return { ok: false, error: "Kein Vereinsheim unter diesem Code." };
+    if (!room.options.zuschauer) return { ok: false, error: "Der Vorstand lässt gerade niemanden auf die Tribüne." };
+    if (room.spectators.length >= 24) return { ok: false, error: "Die Tribüne ist voll." };
+    const name = sanitizeName(rawName);
+    if (!name) return { ok: false, error: "Schreib deinen Namen ins Protokoll: zwei bis zwanzig Zeichen." };
+    const taken = [...room.members, ...room.spectators].some((entry) => entry.name.toLowerCase() === name.toLowerCase());
+    if (taken) return { ok: false, error: "Diesen Namen gibt es im Vereinsheim schon." };
+    const spectator: Spectator = {
+      id: this.createId(),
+      name,
+      token: this.createToken(),
+      socketId: null,
+      connected: true,
+    };
+    room.spectators.push(spectator);
+    this.tokens.set(spectator.token, { code, playerId: spectator.id });
+    this.touch(code);
+    return { ok: true, data: { code, playerId: spectator.id, token: spectator.token } };
+  }
+
   reconnect(token: unknown): RoomResult<{ code: string; playerId: string; token: string }> {
     if (typeof token !== "string" || token.length < 10) {
       return { ok: false, error: "Dieser Ausweis ist ungültig." };
@@ -196,8 +248,20 @@ export class RoomManager {
     const located = this.tokens.get(token);
     if (!located) return { ok: false, error: "Diese Sitzung ist abgelaufen." };
     const room = this.rooms.get(located.code);
-    const member = room?.members.find((entry) => entry.id === located.playerId);
-    if (!room || !member) return { ok: false, error: "Diese Sitzung ist abgelaufen." };
+    if (!room) return { ok: false, error: "Diese Sitzung ist abgelaufen." };
+    const member = room.members.find((entry) => entry.id === located.playerId);
+    const spectator = room.spectators.find((entry) => entry.id === located.playerId);
+    if (!member && !spectator) return { ok: false, error: "Diese Sitzung ist abgelaufen." };
+    if (spectator) {
+      if (!room.options.zuschauer) {
+        this.removeSpectator(room, spectator.id);
+        return { ok: false, error: "Die Tribüne ist geschlossen." };
+      }
+      spectator.connected = true;
+      this.touch(room.code);
+      return { ok: true, data: { code: room.code, playerId: spectator.id, token: spectator.token } };
+    }
+    if (!member) return { ok: false, error: "Diese Sitzung ist abgelaufen." };
     member.connected = true;
     if (room.status === "lobby") {
       /* Bereit-Status bleibt, wie er war, sobald die Verbindung wieder da ist. */
@@ -211,7 +275,16 @@ export class RoomManager {
   attach(code: string, playerId: string, socketId: string): string | null {
     const room = this.rooms.get(code);
     const member = room?.members.find((entry) => entry.id === playerId);
-    if (!room || !member) return null;
+    const spectator = room?.spectators.find((entry) => entry.id === playerId);
+    if (!room || (!member && !spectator)) return null;
+    if (spectator && !member) {
+      const previous = spectator.socketId;
+      spectator.socketId = socketId;
+      spectator.connected = true;
+      this.touch(code);
+      return previous && previous !== socketId ? previous : null;
+    }
+    if (!member) return null;
     const previous = member.socketId;
     member.socketId = socketId;
     member.connected = true;
@@ -222,6 +295,14 @@ export class RoomManager {
   }
 
   noteSocketGone(socketId: string): void {
+    const watching = this.findSpectatorBySocket(socketId);
+    if (watching && watching.spectator.socketId === socketId) {
+      watching.spectator.socketId = null;
+      watching.spectator.connected = false;
+      if (watching.room.status === "lobby") this.removeSpectator(watching.room, watching.spectator.id);
+      else this.touch(watching.room.code);
+      return;
+    }
     const found = this.findBySocket(socketId);
     if (!found) return;
     if (found.member.socketId !== socketId) return;
@@ -249,12 +330,15 @@ export class RoomManager {
   setOptions(
     code: string,
     playerId: string,
-    input: { turnTimerSeconds?: unknown; sitzeMischen?: unknown; probeMitNpcs?: unknown },
-  ): RoomResult<{ updated: true }> {
+    input: { turnTimerSeconds?: unknown; sitzeMischen?: unknown; probeMitNpcs?: unknown; zuschauer?: unknown },
+  ): RoomResult<{ updated: true; ejected: string[] }> {
     const room = this.requireMember(code, playerId);
     if (!room.ok) return room;
     if (room.data.room.hostId !== playerId) return { ok: false, error: "Nur der Vorstand im Vereinsheim darf das." };
-    if (room.data.room.status !== "lobby") return { ok: false, error: "Hausregeln gelten ab der nächsten Sitzung." };
+    const touchesLobby = input.turnTimerSeconds !== undefined || input.sitzeMischen !== undefined || input.probeMitNpcs !== undefined;
+    if (touchesLobby && room.data.room.status !== "lobby") {
+      return { ok: false, error: "Hausregeln gelten ab der nächsten Sitzung." };
+    }
     if (input.turnTimerSeconds !== undefined) {
       const timer = asTimer(input.turnTimerSeconds);
       if (!timer) return { ok: false, error: "Diese Zugzeit steht nicht in der Hausordnung." };
@@ -268,8 +352,14 @@ export class RoomManager {
       if (typeof input.probeMitNpcs !== "boolean") return { ok: false, error: "Das Probespiel ist so nicht lesbar." };
       room.data.room.options.probeMitNpcs = input.probeMitNpcs;
     }
+    const ejected: string[] = [];
+    if (input.zuschauer !== undefined) {
+      if (typeof input.zuschauer !== "boolean") return { ok: false, error: "Die Tribüne ist so nicht lesbar." };
+      room.data.room.options.zuschauer = input.zuschauer;
+      if (!input.zuschauer) ejected.push(...this.dropSpectators(room.data.room));
+    }
     this.touch(code);
-    return { ok: true, data: { updated: true } };
+    return { ok: true, data: { updated: true, ejected } };
   }
 
   kick(code: string, playerId: string, targetId: unknown): RoomResult<{ socketId: string | null }> {
@@ -288,6 +378,13 @@ export class RoomManager {
   }
 
   leave(code: string, playerId: string): RoomResult<{ socketId: string | null; removed: boolean }> {
+    const located = this.rooms.get(code);
+    const spectator = located?.spectators.find((entry) => entry.id === playerId);
+    if (located && spectator) {
+      const socketId = spectator.socketId;
+      this.removeSpectator(located, spectator.id);
+      return { ok: true, data: { socketId, removed: true } };
+    }
     const room = this.requireMember(code, playerId);
     if (!room.ok) return room;
     const socketId = room.data.member.socketId;
@@ -335,6 +432,9 @@ export class RoomManager {
       );
     }
     room.data.room.status = "playing";
+    room.data.room.startedAt = this.now();
+    room.data.room.endedAt = null;
+    room.data.room.protokoll = null;
     for (const member of room.data.room.members) this.clearGrace(this.graceKey(code, member.id));
     this.afterChange(room.data.room, null);
     return { ok: true, data: { started: true } };
@@ -350,6 +450,9 @@ export class RoomManager {
     this.clearTurn(room.data.room);
     room.data.room.game = null;
     room.data.room.status = "lobby";
+    room.data.room.startedAt = null;
+    room.data.room.endedAt = null;
+    room.data.room.protokoll = null;
     room.data.room.timerKey = null;
     room.data.room.turnDeadline = null;
     room.data.room.members = room.data.room.members.filter((member) => !member.npc);
@@ -379,19 +482,42 @@ export class RoomManager {
 
   viewFor(code: string, playerId: string): ClientState | null {
     const room = this.rooms.get(code);
-    const member = room?.members.find((entry) => entry.id === playerId);
-    if (!room || !member) return null;
+    if (!room) return null;
+    const member = room.members.find((entry) => entry.id === playerId);
+    const spectator = room.spectators.find((entry) => entry.id === playerId);
+    if (!member && !spectator) return null;
     const connected = Object.fromEntries(room.members.map((entry) => [entry.id, entry.connected]));
-    const game = room.game ? projectView(room.game, playerId, connected) : null;
     const secondsTotal = room.options.turnTimerSeconds;
-    const secondsLeft =
-      game && room.turnDeadline && game.phase !== "game_over"
-        ? Math.max(0, Math.ceil((room.turnDeadline - this.now()) / 1000))
-        : null;
+    const secondsLeft = (phase: string | undefined) =>
+      phase && phase !== "game_over" && room.turnDeadline ? Math.max(0, Math.ceil((room.turnDeadline - this.now()) / 1000)) : null;
+    if (spectator) {
+      const watch = room.game ? projectSpectator(room.game, spectator.name, connected) : null;
+      return {
+        lobby: this.lobbyWire(room, spectator.id, true),
+        game: null,
+        watch: watch
+          ? { ...watch, turnSecondsLeft: secondsLeft(watch.phase), turnSecondsTotal: secondsTotal, protokoll: room.protokoll }
+          : null,
+      };
+    }
+    if (!member) return null;
+    const game = room.game ? projectView(room.game, playerId, connected) : null;
     return {
-      lobby: this.lobbyWire(room, playerId),
-      game: game ? { ...game, turnSecondsLeft: secondsLeft, turnSecondsTotal: secondsTotal } : null,
+      lobby: this.lobbyWire(room, playerId, false),
+      game: game
+        ? { ...game, turnSecondsLeft: secondsLeft(game.phase), turnSecondsTotal: secondsTotal, protokoll: room.protokoll }
+        : null,
+      watch: null,
     };
+  }
+
+  audience(code: string): { id: string; socketId: string | null }[] {
+    const room = this.rooms.get(code);
+    if (!room) return [];
+    return [
+      ...room.members.map((member) => ({ id: member.id, socketId: member.socketId })),
+      ...room.spectators.map((spectator) => ({ id: spectator.id, socketId: spectator.socketId })),
+    ];
   }
 
   /** Nur für Tests. Wird von keiner Socket-Strecke benutzt. */
@@ -407,12 +533,17 @@ export class RoomManager {
     return this.rooms.has(code);
   }
 
-  private lobbyWire(room: Room, playerId: string): LobbyWire {
+  private lobbyWire(room: Room, playerId: string, watching: boolean): LobbyWire {
     const blockReason = room.status === "lobby" ? this.blockReason(room) : null;
+    const youName = watching
+      ? (room.spectators.find((entry) => entry.id === playerId)?.name ?? "")
+      : (room.members.find((entry) => entry.id === playerId)?.name ?? "");
     return {
       code: room.code,
       status: room.status,
       youId: playerId,
+      youName,
+      youAreWatching: watching,
       hostId: room.hostId,
       players: room.members.map((member, seat) => ({
         id: member.id,
@@ -423,6 +554,7 @@ export class RoomManager {
         isHost: member.id === room.hostId,
         isYou: member.id === playerId,
       })),
+      spectators: room.spectators.map((spectator) => ({ name: spectator.name })),
       options: { ...room.options },
       npcFillers: this.fillerNames(room),
       canStart: room.status === "lobby" && blockReason === null && room.hostId === playerId,
@@ -480,6 +612,49 @@ export class RoomManager {
     return { ok: true, data: { room, member } };
   }
 
+  private rememberProtokoll(room: Room): void {
+    if (!room.game || room.game.phase !== "game_over" || room.protokoll) return;
+    if (room.startedAt === null) room.startedAt = this.now();
+    room.endedAt = this.now();
+    const built = buildSitzungsprotokoll(room.game, {
+      id: randomBytes(9).toString("base64url"),
+      code: room.code,
+      startedAt: room.startedAt,
+      endedAt: room.endedAt,
+    });
+    if (!built) return;
+    room.protokoll = built;
+    try {
+      this.onProtokoll?.(built);
+    } catch {
+      /* Die Übersicht bleibt in der Sitzung, auch wenn die Datei klemmt. */
+    }
+  }
+
+  private dropSpectators(room: Room): string[] {
+    const sockets = room.spectators.map((spectator) => spectator.socketId).filter((id): id is string => Boolean(id));
+    for (const spectator of room.spectators) this.tokens.delete(spectator.token);
+    room.spectators = [];
+    return sockets;
+  }
+
+  private removeSpectator(room: Room, spectatorId: string): void {
+    const index = room.spectators.findIndex((spectator) => spectator.id === spectatorId);
+    if (index < 0) return;
+    const removed = room.spectators[index];
+    room.spectators.splice(index, 1);
+    if (removed) this.tokens.delete(removed.token);
+    this.touch(room.code);
+  }
+
+  private findSpectatorBySocket(socketId: string): { room: Room; spectator: Spectator } | null {
+    for (const room of this.rooms.values()) {
+      const spectator = room.spectators.find((entry) => entry.socketId === socketId);
+      if (spectator) return { room, spectator };
+    }
+    return null;
+  }
+
   private findBySocket(socketId: string): { room: Room; member: Member } | null {
     for (const room of this.rooms.values()) {
       const member = room.members.find((entry) => entry.socketId === socketId);
@@ -509,6 +684,7 @@ export class RoomManager {
 
   private afterChange(room: Room, previousKey: string | null): void {
     const paused = this.driveNpcs(room);
+    this.rememberProtokoll(room);
     if (!paused) this.schedule(room, previousKey);
     this.touch(room.code);
   }
@@ -540,6 +716,7 @@ export class RoomManager {
     room.timer = null;
     const previous = room.timerKey;
     const paused = this.driveNpcs(room);
+    this.rememberProtokoll(room);
     if (!paused) this.schedule(room, previous);
     this.touch(code);
   }
@@ -601,11 +778,14 @@ export class RoomManager {
   private destroy(room: Room): void {
     this.clearTurn(room);
     this.clearAbandon(room);
-    const sockets = room.members.map((member) => member.socketId).filter((id): id is string => Boolean(id));
+    const sockets = [...room.members, ...room.spectators]
+      .map((member) => member.socketId)
+      .filter((id): id is string => Boolean(id));
     for (const member of room.members) {
       this.tokens.delete(member.token);
       this.clearGrace(this.graceKey(room.code, member.id));
     }
+    for (const spectator of room.spectators) this.tokens.delete(spectator.token);
     this.rooms.delete(room.code);
     this.onClose?.(room.code, sockets);
   }

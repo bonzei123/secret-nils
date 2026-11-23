@@ -406,3 +406,143 @@ function instructionFor(
 export function factionLabel(role: Role): string {
   return factionOf(role) === "verein" ? "Verein" : "Klüngel";
 }
+
+export interface SpectatorPlayer {
+  id: string;
+  name: string;
+  seat: number;
+  alive: boolean;
+  connected: boolean;
+  npc: boolean;
+  isPresident: boolean;
+  isChancellor: boolean;
+  isNominee: boolean;
+  voted: boolean;
+}
+
+/** Öffentliche Tischsicht. Keine Rollen, keine Hand, keine Stimmen, solange die Sitzung läuft. */
+export interface SpectatorView {
+  youName: string;
+  players: SpectatorPlayer[];
+  phase: Phase;
+  phaseLabel: string;
+  instruction: string;
+  electionTracker: number;
+  vetoUnlocked: boolean;
+  board: { power: ExecutivePower; label: string }[];
+  vereinswohl: EnactedView[];
+  eigeninteresse: EnactedView[];
+  vereinswohlGoal: number;
+  eigeninteresseGoal: number;
+  drawCount: number;
+  discardCount: number;
+  offices: PlayerView["offices"];
+  lastElection: GameState["lastElection"];
+  briefing: { ready: number; total: number } | null;
+  specialElectionNote: string | null;
+  winner: GameState["winner"];
+  winTitle: string | null;
+  winBody: string | null;
+  winStamp: string | null;
+  revealed: { id: string; name: string; role: Role; roleTitle: string; alive: boolean; npc: boolean }[] | null;
+  log: GameState["log"];
+  composition: string;
+  livingCount: number;
+}
+
+export function projectSpectator(state: GameState, youName: string, connected: Record<string, boolean> = {}): SpectatorView {
+  const powers = boardPowers(state.boardSize);
+  const aliveLimited = (index: number | null) => index !== null && Boolean(state.players[index]?.alive);
+  const players: SpectatorPlayer[] = state.players.map((player, index) => ({
+    id: player.id,
+    name: player.name,
+    seat: player.seat,
+    alive: player.alive,
+    connected: Object.keys(connected).length === 0 ? true : Boolean(connected[player.id]),
+    npc: player.npc,
+    isPresident: index === state.presidentIndex,
+    isChancellor: index === state.chancellorIndex,
+    isNominee: state.phase === "voting" && index === state.nominatedChancellorIndex,
+    voted: state.phase === "voting" && Boolean(state.votes[player.id]),
+  }));
+  const ready = state.players.filter((player) => player.alive && state.briefingAck[player.id]).length;
+  const win = state.winReason ? winCopy(state.winReason) : null;
+  return {
+    youName,
+    players,
+    phase: state.phase,
+    phaseLabel: phaseLabel(state.phase),
+    instruction: publicInstruction(state),
+    electionTracker: state.electionTracker,
+    vetoUnlocked: state.vetoUnlocked,
+    board: powers.map((power) => ({ power, label: power === "none" ? "—" : powerLabel(power) })),
+    vereinswohl: state.enactedVereinswohl.map(copyEnacted),
+    eigeninteresse: state.enactedEigeninteresse.map(copyEnacted),
+    vereinswohlGoal: 5,
+    eigeninteresseGoal: 6,
+    drawCount: state.drawPile.length,
+    discardCount: state.discardPile.length,
+    offices: {
+      presidentName: nameAt(state, state.presidentIndex) ?? "—",
+      chancellorName: nameAt(state, state.chancellorIndex),
+      nomineeName: state.phase === "voting" ? nameAt(state, state.nominatedChancellorIndex) : null,
+      blockedChancellorName: aliveLimited(state.previousChancellorIndex) ? nameAt(state, state.previousChancellorIndex) : null,
+      blockedPresidentName:
+        livingCount(state) >= 5 && aliveLimited(state.previousPresidentIndex) ? nameAt(state, state.previousPresidentIndex) : null,
+    },
+    lastElection: state.lastElection ? { ...state.lastElection } : null,
+    briefing: state.phase === "briefing" ? { ready, total: state.players.filter((player) => player.alive).length } : null,
+    specialElectionNote:
+      state.specialElectionCallerIndex === null
+        ? null
+        : `Sondersitzung, einberufen von ${nameAt(state, state.specialElectionCallerIndex)}. Danach übernimmt ${nextLivingName(state, state.specialElectionCallerIndex)} den Vorsitz.`,
+    winner: state.winner,
+    winTitle: win?.title ?? null,
+    winBody: win?.body ?? null,
+    winStamp: win?.stamp ?? null,
+    revealed:
+      state.phase === "game_over"
+        ? state.players.map((player) => ({
+            id: player.id,
+            name: player.name,
+            role: player.role,
+            roleTitle: roleTitle(player.role),
+            alive: player.alive,
+            npc: player.npc,
+          }))
+        : null,
+    log: state.log.map((entry) => ({ ...entry })),
+    composition: `${state.boardSize} Mitglieder am Tisch. Lager: ${countRoles(state)}.`,
+    livingCount: livingCount(state),
+  };
+}
+
+function publicInstruction(state: GameState): string {
+  const chair = state.players[state.presidentIndex]?.name ?? "der Vorsitz";
+  const purse =
+    (state.chancellorIndex !== null ? state.players[state.chancellorIndex]?.name : null) ??
+    (state.nominatedChancellorIndex !== null ? state.players[state.nominatedChancellorIndex]?.name : null) ??
+    "die Kasse";
+  switch (state.phase) {
+    case "briefing":
+      return "Die Versammlung liest ihre Ausweise. Von der Tribüne aus bleibt alles verdeckt.";
+    case "nominating":
+      return `${chair} schlägt den nächsten Kassenwart vor.`;
+    case "voting":
+      return `${chair} schlägt ${purse} als Kassenwart vor. Die Stimmkarten sind verdeckt.`;
+    case "legislative_president":
+      return `${chair} sortiert drei Vorlagen. Der Inhalt bleibt verdeckt.`;
+    case "legislative_chancellor":
+      return `${purse} entscheidet, welche Vorlage Beschluss wird.`;
+    case "veto_request":
+      return `${chair} entscheidet über die Formfehler-Rüge.`;
+    case "executive":
+      return `${chair} führt die Sonderaktion aus: ${state.pendingPower ? powerLabel(state.pendingPower) : "Sonderaktion"}.`;
+    case "game_over":
+      return state.winner === "verein"
+        ? "Die ehrlichen Mitglieder haben die Sitzung gewonnen."
+        : "Der Klüngel hat die Sitzung gewonnen.";
+    default:
+      return "";
+  }
+}

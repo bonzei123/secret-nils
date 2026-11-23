@@ -3,6 +3,8 @@ import { Game } from "./Game";
 import { Home } from "./Home";
 import { Lobby } from "./Lobby";
 import { Policies } from "./Policies";
+import { protokollIdFromPath, ProtokollPage } from "./Protokoll";
+import { Watch } from "./Watch";
 import { Logo, Wordmark } from "./ui";
 import { useClub } from "./useClub";
 
@@ -14,7 +16,15 @@ export function App() {
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, []);
-  const screen = club.booting ? "boot" : !club.state ? "home" : club.state.game ? "game" : "lobby";
+  const sharedProtokoll = protokollIdFromPath();
+  const screen = club.booting ? "boot" : !club.state ? "home" : club.state.game || club.state.watch ? "game" : "lobby";
+  if (sharedProtokoll) {
+    return (
+      <div className="felt">
+        <ProtokollPage id={sharedProtokoll} />
+      </div>
+    );
+  }
 
   return (
     <div className="felt">
@@ -59,8 +69,16 @@ export function App() {
           onLeave={club.leave}
         />
       )}
-      {screen === "game" && club.state && (
-        <Game state={club.state} connected={club.connected} onAct={club.act} onRematch={club.rematch} onLeave={club.leave} />
+      {screen === "game" && club.state?.watch && <Watch state={club.state} onLeave={club.leave} />}
+      {screen === "game" && club.state?.game && (
+        <Game
+          state={club.state}
+          connected={club.connected}
+          onAct={club.act}
+          onRematch={club.rematch}
+          onLeave={club.leave}
+          onOptions={club.options}
+        />
       )}
       {screen !== "game" && (
         <footer className="colophon">
