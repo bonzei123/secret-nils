@@ -133,6 +133,26 @@ input, select {
 .btn:disabled { opacity: 0.48; cursor: not-allowed; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
+.howto { margin-top: 1.5rem; }
+.howto h2, .rules h2 { font-family: "Fraunces", Georgia, serif; margin: 0 0 0.4rem; }
+.howto-lead { margin: 0 0 0.9rem; color: var(--ink-soft); line-height: 1.45; }
+.howto-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+.howto-steps li { display: grid; grid-template-columns: auto 1fr; gap: 0.75rem; align-items: start; }
+.howto-steps .num {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--club);
+  color: #f6edd8;
+  font-weight: 700;
+}
+.howto-steps p, .howto-list, .howto .panel p { margin: 0.25rem 0 0; color: var(--ink-soft); line-height: 1.45; }
+.howto-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.9rem; }
+.howto-grid .panel h2 { font-size: 1.2rem; }
+.howto-list { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.55rem; }
+.howto-list strong { color: var(--ink); }
 .rules { margin-top: 1.2rem; }
 .rules details {
   border-top: 1px solid var(--line);
@@ -493,7 +513,7 @@ button.antrag:hover:not(:disabled) { transform: translateY(-2px); }
 .reveal .kluengel strong { color: var(--kluengel); }
 
 @media (max-width: 960px) {
-  .home-grid, .tracks, .offices, .split { grid-template-columns: 1fr; }
+  .home-grid, .tracks, .offices, .split, .howto-grid { grid-template-columns: 1fr; }
   .table-grid { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; overflow: auto; }
   .table-grid > aside { max-height: 280px; }
   .slot-row, .track.eigen .slot-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }

@@ -126,6 +126,82 @@ export const SEAT_COLORS = [
   "#3e5348",
 ] as const;
 
+export const HOW_TO_STEPS: readonly { title: string; body: string }[] = [
+  {
+    title: "Ausweis lesen",
+    body: "Jeder bekommt heimlich eine Rolle. Ehrliche Mitglieder kennen niemanden. Festangestellte sehen Nils und die anderen vom Klüngel. Nils sieht seine Leute nur bei fünf oder sechs Spielern, ab sieben nicht. Den Ausweis niemandem zeigen.",
+  },
+  {
+    title: "Vorsitz schlägt die Kasse vor",
+    body: "Eine Person ist 1. Vorsitzender und tippt jemanden an: Der soll Kassenwart werden. Sich selbst geht nicht. Der letzte Kassenwart ist eine Runde gesperrt. Ab fünf Leuten am Tisch ist auch der letzte Vorsitz gesperrt.",
+  },
+  {
+    title: "Alle stimmen Ja oder Nein",
+    body: "Jede Person, die noch im Verein ist, stimmt geheim: Zustimmen oder Ablehnen. Mehr Ja als Nein, dann ist die Wahl durch. Gleichstand zählt als Nein. Danach sieht jeder, wer wie gestimmt hat.",
+  },
+  {
+    title: "Drei Zettel, einer in den Müll",
+    body: "Der Vorsitz zieht drei Beschlussvorlagen. Eine wirft er weg. Die anderen sehen nicht, welche. Die restlichen zwei gehen an den Kassenwart.",
+  },
+  {
+    title: "Die Kasse setzt einen Beschluss um",
+    body: "Der Kassenwart wählt einen der zwei Zettel. Der gilt. Der andere wandert in den Reißwolf. Gute Zettel heißen Vereinswohl, schlechte Eigeninteresse.",
+  },
+  {
+    title: "Danach ist der Nächste dran",
+    body: "Manchmal löst ein schlechter Beschluss noch eine Sonderaktion aus. Die macht der Vorsitz. Dann wandert der Vorsitz eine lebende Person weiter, und der nächste Zug beginnt wieder bei Schritt 2.",
+  },
+];
+
+export const HOW_TO_TURNS: readonly { title: string; body: string }[] = [
+  {
+    title: "Du sollst jemanden vorschlagen",
+    body: "Du bist Vorsitz. Tippe die Person an, die Kassenwart werden soll.",
+  },
+  {
+    title: "Es wird abgestimmt",
+    body: "Tippe Zustimmen oder Ablehnen. Deine Stimme bleibt geheim, bis alle fertig sind.",
+  },
+  {
+    title: "Du hast drei Karten",
+    body: "Wirf die weg, die nicht auf den Tisch soll. Die anderen zwei sieht danach der Kassenwart.",
+  },
+  {
+    title: "Du hast zwei Karten",
+    body: "Du bist Kassenwart. Setze die Karte um, die gelten soll.",
+  },
+  {
+    title: "Sonderaktion",
+    body: "Der Bildschirm sagt, was zu tun ist: eine Akte prüfen, den nächsten Vorsitz bestimmen, drei Karten ansehen oder jemanden aus dem Verein werfen.",
+  },
+];
+
+export const HOW_TO_WINS: readonly { title: string; body: string }[] = [
+  {
+    title: "Ehrliche Mitglieder gewinnen",
+    body: "Fünf Vereinswohl-Beschlüsse liegen auf dem Tisch. Oder Nils wird auf der Jahreshauptversammlung rausgeworfen.",
+  },
+  {
+    title: "Nils und der Klüngel gewinnen",
+    body: "Sechs Eigeninteresse-Beschlüsse liegen auf dem Tisch. Oder Nils wird Kassenwart, nachdem schon mindestens drei schlechte Beschlüsse gelten.",
+  },
+];
+
+export const HOW_TO_EXTRAS: readonly { title: string; body: string }[] = [
+  {
+    title: "Notverwaltung",
+    body: "Scheitern drei Wahlen hintereinander, gilt automatisch die oberste Karte vom Stapel. Dabei gibt es keine Sonderaktion. Sobald irgendein Beschluss durch ist, steht der Zähler wieder auf null.",
+  },
+  {
+    title: "Sonderaktionen",
+    body: "Nur schlechte Beschlüsse lösen sie aus, und nur auf den markierten Feldern. Kassenprüfung zeigt nur das Lager, nicht den Namen der Rolle. Nils erscheint dabei als Klüngel. Eine Sondersitzung setzt einmalig einen anderen Vorsitz ein. Die Tagesordnung zeigt dem Vorsitz die nächsten drei Karten. Die Nicht-Entlastung wirft jemanden endgültig raus.",
+  },
+  {
+    title: "Formfehler",
+    body: "Ab dem fünften schlechten Beschluss kann der Kassenwart beide Karten als satzungswidrig verwerfen. Der Vorsitz muss zustimmen. Sagt er Nein, muss die Kasse trotzdem eine Karte spielen.",
+  },
+];
+
 export const RULES: readonly { heading: string; body: string }[] = [
   {
     heading: "Worum es geht",

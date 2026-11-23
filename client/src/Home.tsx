@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { RULES, TIMER_CHOICES } from "@secret-nils/shared";
+import { HOW_TO_EXTRAS, HOW_TO_STEPS, HOW_TO_TURNS, HOW_TO_WINS, RULES, TIMER_CHOICES } from "@secret-nils/shared";
 import { Logo } from "./ui";
 
 interface HomeProps {
@@ -96,6 +96,55 @@ export function Home({ connected, onCreate, onJoin }: HomeProps) {
           </button>
         </form>
       </div>
+      <section className="howto">
+        <h2>So läuft ein Zug</h2>
+        <p className="howto-lead">
+          Ihr müsst nichts auswendig können. Wenn ihr dran seid, sagt der Bildschirm, welcher Knopf als Nächstes kommt. Das hier ist die Reihenfolge.
+        </p>
+        <ol className="howto-steps">
+          {HOW_TO_STEPS.map((step, index) => (
+            <li key={step.title}>
+              <span className="num">{index + 1}</span>
+              <div>
+                <strong>{step.title}</strong>
+                <p>{step.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <div className="howto-grid">
+          <article className="panel">
+            <h2>Wenn du dran bist</h2>
+            <ul className="howto-list">
+              {HOW_TO_TURNS.map((item) => (
+                <li key={item.title}>
+                  <strong>{item.title}. </strong>
+                  {item.body}
+                </li>
+              ))}
+            </ul>
+          </article>
+          <article className="panel">
+            <h2>Wer gewinnt</h2>
+            <ul className="howto-list">
+              {HOW_TO_WINS.map((item) => (
+                <li key={item.title}>
+                  <strong>{item.title}. </strong>
+                  {item.body}
+                </li>
+              ))}
+            </ul>
+          </article>
+        </div>
+        <div className="howto-grid">
+          {HOW_TO_EXTRAS.map((item) => (
+            <article key={item.title} className="panel">
+              <h2>{item.title}</h2>
+              <p>{item.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
       <section className="rules">
         <h2>Satzung in Kurzform</h2>
         {RULES.map((rule) => (
