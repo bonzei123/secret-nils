@@ -77,13 +77,13 @@ Der QR-Code im Warteraum ist der Beitrittslink. `PUBLIC_ORIGIN` in der Compose-D
 
 Auf der Startseite lassen sich unter „Beschlussvorlagen schreiben“ die mitgelieferten Anträge umformulieren und eigene dazuschreiben. Dieselbe Seite liegt direkt unter `http://<nas>:1488/#satzung`. Gespeichert wird das in `data/policies.json` (im Container unter `/app/data`, das Compose-Volume `secret-nils-data` behält den Ordner über Neubauten). Eine schon laufende Sitzung behält ihren Stapel. Die nächste mischt die neue Fassung.
 
-Ohne weiteres kann jeder, der die Seite erreicht, diese Vorlagen ändern. Zum Sperren in `docker-compose.yml` unter `environment` eintragen und den Container neu starten, ohne das Wort ins Git zu schreiben:
+Ohne weiteres kann jeder, der die Seite erreicht, diese Vorlagen ändern. Das Sperrwort steht nicht in `docker-compose.yml`, sondern in `.env` neben der Compose-Datei. Die Vorlage ist `.env.example`. Git ignoriert `.env`, deshalb übersteht das Wort jeden `git pull`.
 
-```yaml
-SATZUNG_PASSWORT: "ein-langes-wort-nur-fuer-dich"
+```bash
+cp .env.example .env
 ```
 
-Speichern fragt dann danach. Mitspielen bleibt ohne dieses Wort möglich. Port 1488 nur im eigenen Netz lassen, nicht ins Internet weiterleiten.
+In `.env` dann die Zeile `SATZUNG_PASSWORT=...` setzen und den Container neu starten. Speichern fragt danach. Mitspielen bleibt ohne dieses Wort möglich. Port 1488 nur im eigenen Netz lassen, nicht ins Internet weiterleiten.
 
 ## Docker
 

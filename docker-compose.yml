@@ -11,8 +11,8 @@ services:
       HOST: "0.0.0.0"
       POLICIES_PATH: /app/data/policies.json
       REGISTER_PATH: /app/registergericht
-      PUBLIC_ORIGIN: https://secret-nils.bonzei.eu
-      # SATZUNG_PASSWORT: "ein-langes-wort-nur-fuer-dich"
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-https://secret-nils.bonzei.eu}
+      SATZUNG_PASSWORT: ${SATZUNG_PASSWORT:-}
     volumes:
       - secret-nils-data:/app/data
       - ./registergericht:/app/registergericht
