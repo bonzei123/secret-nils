@@ -169,6 +169,7 @@ input, select {
 .toast p { margin: 0; }
 
 .lobby { max-width: 980px; margin: 0 auto; padding: clamp(1rem, 2vw, 1.5rem); }
+.probe-box { margin-top: 1rem; background: #fff4d6; }
 .code-plate {
   display: flex;
   flex-wrap: wrap;

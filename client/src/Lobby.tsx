@@ -54,6 +54,19 @@ export function Lobby({ state, onReady, onOptions, onKick, onStart, onLeave }: L
         </div>
       </div>
       {copied && <p className="meta-line">{copied}</p>}
+      <section className="panel probe-box">
+        <label className="check">
+          <input
+            type="checkbox"
+            disabled={!isHost}
+            checked={Boolean(lobby.options.probeMitNpcs)}
+            onChange={(event) => void onOptions({ probeMitNpcs: event.target.checked })}
+          />
+          <span>
+            <strong>Probespiel.</strong> Platzhalter füllen auf fünf Sitze auf, wenn ihr weniger als fünf seid.
+          </span>
+        </label>
+      </section>
       <div className="split" style={{ marginTop: "1rem" }}>
         <section className="panel">
           <h2>Mitgliederliste</h2>
@@ -76,7 +89,7 @@ export function Lobby({ state, onReady, onOptions, onKick, onStart, onLeave }: L
                 )}
               </li>
             ))}
-            {lobby.npcFillers.map((name) => (
+            {(lobby.npcFillers ?? []).map((name) => (
               <li key={name} className="member">
                 <div>
                   <strong>{name}</strong>
@@ -119,19 +132,10 @@ export function Lobby({ state, onReady, onOptions, onKick, onStart, onLeave }: L
             />
             <span>Sitze zu Beginn mischen.</span>
           </label>
-          <label className="check">
-            <input
-              type="checkbox"
-              disabled={!isHost}
-              checked={lobby.options.probeMitNpcs}
-              onChange={(event) => void onOptions({ probeMitNpcs: event.target.checked })}
-            />
-            <span>Probespiel mit Platzhaltern, wenn weniger als fünf da sind.</span>
-          </label>
           <p className="meta-line">
             {lobby.options.probeMitNpcs
-              ? lobby.npcFillers.length > 0
-                ? `${lobby.players.length} Personen, dazu ${lobby.npcFillers.length} Platzhalter bis fünf Sitze. Alle echten Mitglieder bereit und verbunden.`
+              ? (lobby.npcFillers ?? []).length > 0
+                ? `${lobby.players.length} Personen, dazu ${(lobby.npcFillers ?? []).length} Platzhalter bis fünf Sitze. Alle echten Mitglieder bereit und verbunden.`
                 : `${lobby.players.length}/10 Mitglieder. Genug Personen, die Platzhalter bleiben draußen.`
               : `${lobby.players.length}/10 Mitglieder. Es braucht 5 bis 10, alle bereit und verbunden.`}
           </p>

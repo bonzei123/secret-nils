@@ -27,7 +27,9 @@ function clientDist(): string | null {
 
 function sendFile(res: ServerResponse, filePath: string): void {
   const extension = path.extname(filePath).toLowerCase();
-  res.writeHead(200, { "Content-Type": MIME[extension] ?? "application/octet-stream" });
+  const headers: Record<string, string> = { "Content-Type": MIME[extension] ?? "application/octet-stream" };
+  if (extension === ".html") headers["Cache-Control"] = "no-store";
+  res.writeHead(200, headers);
   createReadStream(filePath).pipe(res);
 }
 
