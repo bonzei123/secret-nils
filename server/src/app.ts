@@ -4,6 +4,7 @@ import path from "node:path";
 import { Server } from "socket.io";
 import type { Ack, ClientState } from "@secret-nils/shared";
 import { RoomManager, type ManagerConfig } from "./manager.js";
+import { passesPolicyPassword } from "./password.js";
 import type { PolicyStore } from "./policy-store.js";
 
 const MIME: Record<string, string> = {
@@ -63,7 +64,7 @@ function readBody(req: IncomingMessage): Promise<unknown> {
   });
 }
 
-function handleHttp(req: IncomingMessage, res: ServerResponse, policies?: PolicyStore): void {
+function handleHttp(req: IncomingMessage, res: ServerResponse, policies?: PolicyStore, policyPassword?: string): void {
   const url = new URL(req.url ?? "/", "http://localhost");
   if (url.pathname === "/health") {
     res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
@@ -76,14 +77,19 @@ function handleHttp(req: IncomingMessage, res: ServerResponse, policies?: Policy
       return;
     }
     if (req.method === "GET") {
-      sendJson(res, 200, policies.view());
+      sendJson(res, 200, { ...policies.view(), geschuetzt: Boolean(policyPassword) });
       return;
     }
     if (req.method === "PUT") {
       void readBody(req)
         .then((body) => {
+          const given = body && typeof body === "object" ? (body as { passwort?: unknown }).passwort : undefined;
+          if (!passesPolicyPassword(policyPassword, given)) {
+            sendJson(res, 401, { error: "Das Satzungspasswort stimmt nicht." });
+            return;
+          }
           const result = policies.save(body);
-          sendJson(res, result.ok ? 200 : 400, result.ok ? result : { error: result.error });
+          sendJson(res, result.ok ? 200 : 400, result.ok ? { ...result, geschuetzt: Boolean(policyPassword) } : { error: result.error });
         })
         .catch(() => sendJson(res, 400, { error: "Die Vorlagen sind so nicht lesbar." }));
       return;
@@ -117,9 +123,9 @@ function reply(ack: unknown, body: Ack): void {
   if (typeof ack === "function") (ack as (value: Ack) => void)(body);
 }
 
-export function createApp(config: ManagerConfig & { policies?: PolicyStore } = {}) {
-  const { policies, ...managerConfig } = config;
-  const httpServer = createServer((req, res) => handleHttp(req, res, policies));
+export function createApp(config: ManagerConfig & { policies?: PolicyStore; policyPassword?: string } = {}) {
+  const { policies, policyPassword, ...managerConfig } = config;
+  const httpServer = createServer((req, res) => handleHttp(req, res, policies, policyPassword));
   const io = new Server(httpServer, {
     cors: { origin: true },
     pingInterval: 10_000,

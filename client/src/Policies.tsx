@@ -10,23 +10,29 @@ type Draft = PolicyEditorCard & { key: string };
 
 export function Policies({ onBack }: PoliciesProps) {
   const [cards, setCards] = useState<Draft[] | null>(null);
+  const [geschuetzt, setGeschuetzt] = useState(false);
+  const [passwort, setPasswort] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     void load()
-      .then((next) => setCards(next))
+      .then((next) => {
+        setCards(next.cards);
+        setGeschuetzt(next.geschuetzt);
+      })
       .catch((reason: Error) => setError(reason.message));
   }, []);
 
-  async function persist(body: unknown, success: string) {
+  async function persist(body: Record<string, unknown>, success: string) {
     setBusy(true);
     setError(null);
     setNote(null);
     try {
-      const next = await save(body);
-      setCards(next);
+      const next = await save({ ...body, passwort });
+      setCards(next.cards);
+      setGeschuetzt(next.geschuetzt);
       setNote(success);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Speichern hat nicht geklappt.");
@@ -72,6 +78,14 @@ export function Policies({ onBack }: PoliciesProps) {
       <p className="lede">
         Die mitgelieferten Anträge kannst du umschreiben. Eigene kommen obendrauf in den Stapel. Eine laufende Sitzung behält ihre Karten, die nächste mischt neu.
       </p>
+      {geschuetzt ? (
+        <label>
+          Satzungspasswort
+          <input type="password" autoComplete="current-password" value={passwort} onChange={(event) => setPasswort(event.target.value)} />
+        </label>
+      ) : (
+        <p className="note-warn">Ungeschützt. Jeder, der diese Seite öffnet, kann die Vorlagen ändern. Setze auf dem Server SATZUNG_PASSWORT.</p>
+      )}
       {error && <p className="note-warn">{error}</p>}
       {note && <p className="meta-line">{note}</p>}
       {!cards && !error && <p>Die Satzung wird aus dem Schrank geholt.</p>}
@@ -179,20 +193,20 @@ function PolicyGroup({
   );
 }
 
-async function load(): Promise<Draft[]> {
+async function load(): Promise<{ cards: Draft[]; geschuetzt: boolean }> {
   const response = await fetch("/api/policies");
-  const body = (await response.json()) as { cards?: PolicyEditorCard[]; error?: string };
+  const body = (await response.json()) as { cards?: PolicyEditorCard[]; geschuetzt?: boolean; error?: string };
   if (!response.ok || !body.cards) throw new Error(body.error ?? "Die Vorlagen sind nicht angekommen.");
-  return body.cards.map((card) => ({ ...card, key: card.id }));
+  return { cards: body.cards.map((card) => ({ ...card, key: card.id })), geschuetzt: body.geschuetzt === true };
 }
 
-async function save(payload: unknown): Promise<Draft[]> {
+async function save(payload: unknown): Promise<{ cards: Draft[]; geschuetzt: boolean }> {
   const response = await fetch("/api/policies", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const body = (await response.json()) as { cards?: PolicyEditorCard[]; error?: string };
+  const body = (await response.json()) as { cards?: PolicyEditorCard[]; geschuetzt?: boolean; error?: string };
   if (!response.ok || !body.cards) throw new Error(body.error ?? "Speichern hat nicht geklappt.");
-  return body.cards.map((card) => ({ ...card, key: card.id }));
+  return { cards: body.cards.map((card) => ({ ...card, key: card.id })), geschuetzt: body.geschuetzt === true };
 }

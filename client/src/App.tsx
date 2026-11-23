@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Game } from "./Game";
 import { Home } from "./Home";
 import { Lobby } from "./Lobby";
@@ -8,7 +8,12 @@ import { useClub } from "./useClub";
 
 export function App() {
   const club = useClub();
-  const [policiesOpen, setPoliciesOpen] = useState(false);
+  const [policiesOpen, setPoliciesOpen] = useState(() => window.location.hash === "#satzung");
+  useEffect(() => {
+    const sync = () => setPoliciesOpen(window.location.hash === "#satzung");
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
   const screen = club.booting ? "boot" : !club.state ? "home" : club.state.game ? "game" : "lobby";
 
   return (
@@ -35,9 +40,23 @@ export function App() {
           <p>Gleich geht die Tür zum Vereinsheim auf.</p>
         </main>
       )}
-      {screen === "home" && policiesOpen && <Policies onBack={() => setPoliciesOpen(false)} />}
+      {screen === "home" && policiesOpen && (
+        <Policies
+          onBack={() => {
+            if (window.location.hash === "#satzung") history.replaceState(null, "", window.location.pathname + window.location.search);
+            setPoliciesOpen(false);
+          }}
+        />
+      )}
       {screen === "home" && !policiesOpen && (
-        <Home connected={club.connected} onCreate={club.create} onJoin={club.join} onPolicies={() => setPoliciesOpen(true)} />
+        <Home
+          connected={club.connected}
+          onCreate={club.create}
+          onJoin={club.join}
+          onPolicies={() => {
+            window.location.hash = "satzung";
+          }}
+        />
       )}
       {screen === "lobby" && club.state && (
         <Lobby
