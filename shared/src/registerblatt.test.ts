@@ -35,6 +35,7 @@ describe("Registerdatei", () => {
     const svg = renderProtokollSvg(sheet);
     expect(svg).toContain("Ada &lt;Gast&gt;");
     expect(svg).toContain("Offene Kasse");
+    expect(svg).toContain("#12281d");
     expect(svg).not.toContain("Ada <Gast>");
   });
 

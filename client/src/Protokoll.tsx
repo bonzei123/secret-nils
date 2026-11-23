@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { formatDuration, type Sitzungsprotokoll } from "@secret-nils/shared";
+import { formatDuration, renderProtokollSvg, type Sitzungsprotokoll } from "@secret-nils/shared";
 import { usePublicOrigin } from "./origin";
 import { Logo, Wordmark } from "./ui";
 
@@ -182,105 +182,32 @@ export function protokollIdFromPath(): string | null {
 }
 
 async function renderPng(protokoll: Sitzungsprotokoll): Promise<Blob> {
-  const width = 900;
-  const pad = 48;
-  const inner = width - pad * 2;
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Kein Bild.");
-  ctx.font = "28px Georgia, serif";
-  const blocks = layout(protokoll, ctx, inner);
-  const height = blocks.reduce((sum, block) => sum + block.height, pad * 2);
-  canvas.width = width;
-  canvas.height = height;
-  ctx.fillStyle = "#f6efe2";
-  ctx.fillRect(0, 0, width, height);
-  ctx.fillStyle = "#1f6b3a";
-  ctx.fillRect(0, 0, width, 14);
-  ctx.fillStyle = protokoll.winner === "verein" ? "#1f6b3a" : "#8c1d18";
-  ctx.fillRect(0, height - 14, width, 14);
-  let y = pad + 8;
-  for (const block of blocks) {
-    ctx.fillStyle = "#24170f";
-    ctx.font = block.font;
-    ctx.textBaseline = "top";
-    for (const line of block.lines) {
-      ctx.fillStyle = block.color;
-      ctx.fillText(line, pad, y);
-      y += block.lineHeight;
-    }
-    y += block.gap;
+  const svg = renderProtokollSvg(protokoll);
+  const width = Number(svg.match(/width="(\d+)"/)?.[1] ?? 1080);
+  const height = Number(svg.match(/height="(\d+)"/)?.[1] ?? 1400);
+  const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+  try {
+    const image = await loadImage(url);
+    const scale = 2;
+    const canvas = document.createElement("canvas");
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Kein Bild.");
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!blob) throw new Error("Das Bild ließ sich nicht schreiben.");
+    return blob;
+  } finally {
+    URL.revokeObjectURL(url);
   }
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-  if (!blob) throw new Error("Das Bild ließ sich nicht schreiben.");
-  return blob;
 }
 
-interface Block {
-  lines: string[];
-  font: string;
-  lineHeight: number;
-  gap: number;
-  height: number;
-  color: string;
-}
-
-function layout(protokoll: Sitzungsprotokoll, ctx: CanvasRenderingContext2D, width: number): Block[] {
-  const when = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(protokoll.startedAt));
-  const inside = protokoll.players.filter((player) => player.alive).map((player) => personLine(player));
-  const outside = protokoll.players.filter((player) => !player.alive).map((player) => personLine(player));
-  const good = protokoll.vereinswohl.map((card) => antragLine(card));
-  const bad = protokoll.eigeninteresse.map((card) => antragLine(card));
-  const raw: { text: string; font: string; line: number; gap: number; color: string }[] = [
-    { text: "Secret Nils", font: "700 22px Georgia, serif", line: 30, gap: 4, color: "#6b4e16" },
-    { text: protokoll.winTitle, font: "700 40px Georgia, serif", line: 48, gap: 8, color: "#24170f" },
-    { text: protokoll.winStamp, font: "700 22px Georgia, serif", line: 30, gap: 8, color: protokoll.winner === "verein" ? "#1f6b3a" : "#8c1d18" },
-    { text: protokoll.winBody, font: "22px Georgia, serif", line: 30, gap: 12, color: "#4a3b2a" },
-    { text: `${when} · ${formatDuration(protokoll.durationMs)} · Raum ${protokoll.code}`, font: "20px Georgia, serif", line: 28, gap: 18, color: "#4a3b2a" },
-    { text: "Noch drin", font: "700 24px Georgia, serif", line: 32, gap: 6, color: "#24170f" },
-    { text: inside.join("\n") || "Niemand mehr.", font: "22px Georgia, serif", line: 30, gap: 14, color: "#24170f" },
-    { text: "Raus", font: "700 24px Georgia, serif", line: 32, gap: 6, color: "#24170f" },
-    { text: outside.join("\n") || "Niemand ausgeschlossen.", font: "22px Georgia, serif", line: 30, gap: 14, color: "#24170f" },
-    { text: "Vereinswohl", font: "700 24px Georgia, serif", line: 32, gap: 6, color: "#1f6b3a" },
-    { text: good.join("\n") || "Keiner.", font: "22px Georgia, serif", line: 30, gap: 14, color: "#24170f" },
-    { text: "Eigeninteresse", font: "700 24px Georgia, serif", line: 32, gap: 6, color: "#8c1d18" },
-    { text: bad.join("\n") || "Keiner.", font: "22px Georgia, serif", line: 30, gap: 8, color: "#24170f" },
-    { text: "Fiktives Partyspiel. Keine echten Clubs.", font: "18px Georgia, serif", line: 26, gap: 0, color: "#6d5c49" },
-  ];
-  return raw.map((entry) => {
-    ctx.font = entry.font;
-    const lines = entry.text.split("\n").flatMap((paragraph) => wrap(ctx, paragraph, width));
-    return {
-      lines,
-      font: entry.font,
-      lineHeight: entry.line,
-      gap: entry.gap,
-      height: lines.length * entry.line + entry.gap,
-      color: entry.color,
-    };
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Das Bild ließ sich nicht zeichnen."));
+    image.src = url;
   });
-}
-
-function personLine(player: Sitzungsprotokoll["players"][number]): string {
-  return `${player.name} — ${player.roleTitle}${player.npc ? " (Platzhalter)" : ""}`;
-}
-
-function antragLine(card: Sitzungsprotokoll["vereinswohl"][number]): string {
-  return `${card.title}${card.chaos ? " (Notverwaltung)" : ""}${card.flavor ? ` — ${card.flavor}` : ""}`;
-}
-
-function wrap(ctx: CanvasRenderingContext2D, text: string, width: number): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
-  if (words.length === 0) return [""];
-  const lines: string[] = [];
-  let current = words[0] ?? "";
-  for (const word of words.slice(1)) {
-    const next = `${current} ${word}`;
-    if (ctx.measureText(next).width > width) {
-      lines.push(current);
-      current = word;
-    } else current = next;
-  }
-  lines.push(current);
-  return lines;
 }
