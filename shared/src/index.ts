@@ -10,3 +10,4 @@ export * from "./protocol";
 export * from "./npc";
 export * from "./policies";
 export * from "./summary";
+export * from "./registerblatt";

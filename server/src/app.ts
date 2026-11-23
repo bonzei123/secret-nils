@@ -6,12 +6,12 @@ import type { Ack, ClientState } from "@secret-nils/shared";
 import { RoomManager, type ManagerConfig } from "./manager.js";
 import { passesPolicyPassword } from "./password.js";
 import type { PolicyStore } from "./policy-store.js";
-import type { SummaryStore } from "./summary-store.js";
+import type { RegisterArchive } from "./register.js";
 
 interface HttpContext {
   policies?: PolicyStore;
   policyPassword?: string;
-  summaries?: SummaryStore;
+  register?: RegisterArchive;
   publicOrigin?: string;
 }
 
@@ -85,12 +85,27 @@ function handleHttp(req: IncomingMessage, res: ServerResponse, ctx: HttpContext)
   }
   const protokollMatch = url.pathname.match(/^\/api\/protokoll\/([A-Za-z0-9_-]{8,40})$/);
   if (protokollMatch) {
-    const sheet = ctx.summaries?.get(protokollMatch[1] ?? "");
-    if (!sheet) {
+    const hit = ctx.register?.list().find((entry) => entry.id === protokollMatch[1]);
+    if (!hit) {
       sendJson(res, 404, { error: "Dieses Sitzungsprotokoll liegt nicht mehr aus." });
       return;
     }
-    sendJson(res, 200, sheet);
+    sendJson(res, 200, { datei: hit.datei });
+    return;
+  }
+  if (url.pathname === "/api/register") {
+    sendJson(res, 200, { eintraege: ctx.register?.list() ?? [] });
+    return;
+  }
+  const blatt = url.pathname.match(/^\/registergericht\/([^/]+\.svg)$/);
+  if (blatt) {
+    const file = ctx.register?.resolve(decodeURIComponent(blatt[1] ?? ""));
+    if (!file) {
+      sendJson(res, 404, { error: "Diese Sitzung liegt nicht mehr im Register." });
+      return;
+    }
+    res.writeHead(200, { "Content-Type": "image/svg+xml", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
+    createReadStream(file).pipe(res);
     return;
   }
   if (url.pathname === "/api/policies") {
@@ -148,10 +163,10 @@ function reply(ack: unknown, body: Ack): void {
 }
 
 export function createApp(
-  config: ManagerConfig & { policies?: PolicyStore; policyPassword?: string; summaries?: SummaryStore; publicOrigin?: string } = {},
+  config: ManagerConfig & { policies?: PolicyStore; policyPassword?: string; register?: RegisterArchive; publicOrigin?: string } = {},
 ) {
-  const { policies, policyPassword, summaries, publicOrigin, ...managerConfig } = config;
-  const httpServer = createServer((req, res) => handleHttp(req, res, { policies, policyPassword, summaries, publicOrigin }));
+  const { policies, policyPassword, register, publicOrigin, ...managerConfig } = config;
+  const httpServer = createServer((req, res) => handleHttp(req, res, { policies, policyPassword, register, publicOrigin }));
   const io = new Server(httpServer, {
     cors: { origin: true },
     pingInterval: 10_000,
@@ -180,13 +195,7 @@ export function createApp(
     catalog: policies ? () => policies.deck() : managerConfig.catalog,
     onChange: broadcast,
     onClose: closeRoom,
-    onProtokoll: (sheet) => {
-      try {
-        summaries?.put(sheet);
-      } catch {
-        /* Die Übersicht bleibt in der laufenden Sitzung. */
-      }
-    },
+    onProtokoll: (sheet) => register?.save(sheet),
   });
 
   const bind = (socket: BoundSocket, code: string, playerId: string) => {

@@ -1,5 +1,6 @@
 node_modules
 data
+registergericht
 dist
 .DS_Store
 *.log

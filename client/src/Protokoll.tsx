@@ -5,7 +5,7 @@ import { Logo, Wordmark } from "./ui";
 
 export function ProtokollSheet({ protokoll }: { protokoll: Sitzungsprotokoll }) {
   const origin = usePublicOrigin();
-  const link = `${origin}/protokoll/${protokoll.id}`;
+  const link = protokoll.datei ? `${origin}/registergericht/${protokoll.datei}` : `${origin}/protokoll/${protokoll.id}`;
   const [note, setNote] = useState("");
   const when = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(protokoll.startedAt));
   const inside = protokoll.players.filter((player) => player.alive);
@@ -128,16 +128,19 @@ function AntragList({ title, cards }: { title: string; cards: Sitzungsprotokoll[
 
 export function ProtokollPage({ id }: { id: string }) {
   const [sheet, setSheet] = useState<Sitzungsprotokoll | null>(null);
+  const [image, setImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
     void fetch(`/api/protokoll/${id}`)
       .then(async (response) => {
-        const body = (await response.json()) as Sitzungsprotokoll & { error?: string };
+        const body = (await response.json()) as Sitzungsprotokoll & { datei?: string; error?: string };
         if (!live) return;
         if (!response.ok) setError(body.error ?? "Das Protokoll ist nicht angekommen.");
-        else setSheet(body);
+        else if (body.winTitle) setSheet(body);
+        else if (body.datei) setImage(`/registergericht/${body.datei}`);
+        else setError("Das Protokoll ist nicht angekommen.");
       })
       .catch(() => {
         if (live) setError("Das Protokoll ist nicht angekommen.");
@@ -159,7 +162,12 @@ export function ProtokollPage({ id }: { id: string }) {
         </div>
       </header>
       {error && <p className="note-warn">{error}</p>}
-      {!sheet && !error && <p>Das Protokoll wird aus dem Schrank geholt.</p>}
+      {!sheet && !image && !error && <p>Das Protokoll wird aus dem Schrank geholt.</p>}
+      {image && (
+        <a href={image}>
+          <img className="register-shot" src={image} alt="Sitzungsprotokoll" />
+        </a>
+      )}
       {sheet && <ProtokollSheet protokoll={sheet} />}
       <p className="meta-line">
         <a href="/">Zurück zum Vereinsheim</a>

@@ -29,6 +29,8 @@ export interface Sitzungsprotokoll {
   players: ProtokollPerson[];
   vereinswohl: ProtokollAntrag[];
   eigeninteresse: ProtokollAntrag[];
+  /** Dateiname im Registerordner, sobald die Zeichnung liegt. */
+  datei?: string;
 }
 
 export function formatDuration(ms: number): string {

@@ -2,7 +2,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createApp } from "./app.js";
 import { PolicyStore } from "./policy-store.js";
-import { SummaryStore } from "./summary-store.js";
+import { RegisterArchive } from "./register.js";
 
 const port = Number(process.env.PORT) || 3001;
 const host = process.env.HOST || "0.0.0.0";
@@ -14,7 +14,7 @@ export function start() {
   const app = createApp({
     policies: new PolicyStore(policiesPath),
     policyPassword,
-    summaries: new SummaryStore(path.join(path.dirname(policiesPath), "protokolle.json")),
+    register: new RegisterArchive(process.env.REGISTER_PATH ?? path.resolve(process.cwd(), "../registergericht")),
     publicOrigin,
   });
   app.httpServer.listen(port, host, () => {

@@ -47,7 +47,7 @@ export interface ManagerConfig {
   createSeed?: () => number;
   /** Stapel für neue Sitzungen. Ohne Angabe gilt die mitgelieferte Satzung. */
   catalog?: () => PolicyCard[];
-  onProtokoll?: (summary: Sitzungsprotokoll) => void;
+  onProtokoll?: (summary: Sitzungsprotokoll) => string | void;
 }
 
 interface Member {
@@ -623,12 +623,13 @@ export class RoomManager {
       endedAt: room.endedAt,
     });
     if (!built) return;
-    room.protokoll = built;
+    let datei: string | void;
     try {
-      this.onProtokoll?.(built);
+      datei = this.onProtokoll?.(built);
     } catch {
-      /* Die Übersicht bleibt in der Sitzung, auch wenn die Datei klemmt. */
+      datei = undefined;
     }
+    room.protokoll = typeof datei === "string" ? { ...built, datei } : built;
   }
 
   private dropSpectators(room: Room): string[] {

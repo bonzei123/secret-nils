@@ -27,6 +27,7 @@ ENV NODE_ENV=production \
     PORT=1488 \
     HOST=0.0.0.0 \
     POLICIES_PATH=/app/data/policies.json \
+    REGISTER_PATH=/app/registergericht \
     npm_config_update_notifier=false
 
 WORKDIR /app
@@ -43,13 +44,17 @@ RUN npm ci --omit=dev && npm cache clean --force \
 COPY --from=build --chown=node:node /app/shared/src ./shared/src
 COPY --from=build --chown=node:node /app/server/src ./server/src
 COPY --from=build --chown=node:node /app/client/dist ./client/dist
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
+  && mkdir -p /app/registergericht \
+  && chown node:node /app/registergericht
 
-USER node
+USER root
 
 EXPOSE 1488
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||1488)+'/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-ENTRYPOINT ["/usr/bin/tini", "--"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
 CMD ["npm", "start"]

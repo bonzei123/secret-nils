@@ -17,6 +17,13 @@ export default defineConfig({
       },
       "/health": "http://127.0.0.1:3001",
       "/api": "http://127.0.0.1:3001",
+      "/registergericht": {
+        target: "http://127.0.0.1:3001",
+        bypass(req) {
+          const url = req.url ?? "";
+          if (url === "/registergericht" || url === "/registergericht/") return "/index.html";
+        },
+      },
     },
   },
 });

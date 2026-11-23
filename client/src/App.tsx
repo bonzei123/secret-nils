@@ -4,6 +4,7 @@ import { Home } from "./Home";
 import { Lobby } from "./Lobby";
 import { Policies } from "./Policies";
 import { protokollIdFromPath, ProtokollPage } from "./Protokoll";
+import { RegisterPage } from "./Register";
 import { Watch } from "./Watch";
 import { Logo, Wordmark } from "./ui";
 import { useClub } from "./useClub";
@@ -16,8 +17,16 @@ export function App() {
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, []);
+  const registerOpen = window.location.pathname === "/registergericht" || window.location.pathname === "/registergericht/";
   const sharedProtokoll = protokollIdFromPath();
   const screen = club.booting ? "boot" : !club.state ? "home" : club.state.game || club.state.watch ? "game" : "lobby";
+  if (registerOpen) {
+    return (
+      <div className="felt">
+        <RegisterPage />
+      </div>
+    );
+  }
   if (sharedProtokoll) {
     return (
       <div className="felt">
@@ -83,11 +92,16 @@ export function App() {
       {screen !== "game" && (
         <footer className="colophon">
           <p>Fiktives Partyspiel ohne Bezug zu echten Clubs, Personen oder Organisationen. Eigenständige Satire, keine offizielle Adaption.</p>
-          {screen === "home" && !policiesOpen && (
-            <button type="button" className="colophon-link" onClick={() => { window.location.hash = "satzung"; }}>
-              Beschlussvorlagen
-            </button>
-          )}
+          <span className="colophon-links">
+            {screen === "home" && !policiesOpen && (
+              <button type="button" className="colophon-link" onClick={() => { window.location.hash = "satzung"; }}>
+                Beschlussvorlagen
+              </button>
+            )}
+            <a className="colophon-link" href="/registergericht">
+              Registergericht
+            </a>
+          </span>
         </footer>
       )}
     </div>
